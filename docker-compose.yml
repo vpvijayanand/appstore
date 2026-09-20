@@ -1,0 +1,119 @@
+version: '3.9'
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: wlstore_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wlstore_db
+      POSTGRES_USER: wlstore
+      POSTGRES_PASSWORD: wlstore_secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wlstore -d wlstore_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - wlstore_net
+
+  # ── MinIO (APK Storage) ─────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: wlstore_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: wlstore_minio
+      MINIO_ROOT_PASSWORD: wlstore_minio_secret
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO Console
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - wlstore_net
+
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: wlstore_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://wlstore:wlstore_secret@postgres:5432/wlstore_db
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production_minimum_32_characters}
+      JWT_EXPIRES_IN: 1h
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_minimum_32_characters}
+      JWT_REFRESH_EXPIRES_IN: 7d
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: wlstore_minio
+      MINIO_SECRET_KEY: wlstore_minio_secret
+      MINIO_BUCKET: wl-apks
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      RATE_LIMIT_WINDOW_MS: 900000
+      RATE_LIMIT_MAX: 200
+    ports:
+      - "3000:3000"
+    networks:
+      - wlstore_net
+
+  # ── Admin Portal (React built, served by Nginx) ─────────────────────────────
+  admin-portal:
+    build:
+      context: ./admin-portal
+      dockerfile: Dockerfile
+    container_name: wlstore_portal
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    networks:
+      - wlstore_net
+
+# ── Nginx Reverse Proxy (Production / Hostinger VPS) ────────────────────────
+# Uncomment after setting up domain + SSL via certbot
+#  nginx:
+#    image: nginx:alpine
+#    container_name: wlstore_nginx
+#    restart: unless-stopped
+#    depends_on:
+#      - backend
+#      - admin-portal
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+#      - ./nginx/certs:/etc/letsencrypt:ro
+#    networks:
+#      - wlstore_net
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  wlstore_net:
+    driver: bridge

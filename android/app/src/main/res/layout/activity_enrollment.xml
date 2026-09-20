@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="32dp"
+    android:gravity="center"
+    android:background="#0F1117">
+
+    <!-- Logo -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🏪"
+        android:textSize="64sp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="WL Playstore"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#E8EAED"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Worldline Enterprise App Store"
+        android:textSize="13sp"
+        android:textColor="#9AA0AD"
+        android:layout_marginBottom="40dp" />
+
+    <!-- Terminal ID -->
+    <EditText
+        android:id="@+id/et_terminal_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Terminal ID"
+        android:textColor="#E8EAED"
+        android:textColorHint="#5F6368"
+        android:backgroundTint="#01875F"
+        android:inputType="textCapCharacters"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Customer ID -->
+    <EditText
+        android:id="@+id/et_customer_id"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Customer ID (UUID)"
+        android:textColor="#E8EAED"
+        android:textColorHint="#5F6368"
+        android:backgroundTint="#01875F"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Site -->
+    <EditText
+        android:id="@+id/et_site"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Site / Branch (optional)"
+        android:textColor="#E8EAED"
+        android:textColorHint="#5F6368"
+        android:backgroundTint="#01875F"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Enroll Button -->
+    <Button
+        android:id="@+id/btn_enroll"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:text="Enroll Terminal"
+        android:textColor="#FFFFFF"
+        android:textSize="15sp"
+        android:backgroundTint="#01875F"
+        android:layout_marginBottom="16dp" />
+
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:indeterminateTint="#01875F"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#9AA0AD"
+        android:textSize="13sp" />
+
+</LinearLayout>

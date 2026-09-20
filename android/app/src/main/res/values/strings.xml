@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">WL Playstore</string>
+    <string name="enroll_title">Terminal Enrollment</string>
+    <string name="enroll_subtitle">Register this device with the WL App Store</string>
+    <string name="terminal_id_hint">Terminal ID</string>
+    <string name="customer_id_hint">Customer ID (UUID)</string>
+    <string name="site_hint">Site / Branch (optional)</string>
+    <string name="btn_enroll">Enroll Terminal</string>
+    <string name="catalog_empty">No apps available for your device.</string>
+    <string name="install_btn">Install</string>
+    <string name="installing_btn">Installing…</string>
+</resources>

@@ -1,0 +1,172 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Admin Users ─────────────────────────────────────────────────────────────
+
+model AdminUser {
+  id           String         @id @default(uuid())
+  email        String         @unique
+  passwordHash String         @map("password_hash")
+  name         String
+  role         AdminRole      @default(OPERATOR)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  auditLogs    AdminAuditLog[]
+
+  @@map("admin_users")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  OPERATOR
+}
+
+// ─── Customers ───────────────────────────────────────────────────────────────
+
+model Customer {
+  id          String     @id @default(uuid())
+  name        String
+  code        String     @unique
+  contactEmail String?   @map("contact_email")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  terminals   Terminal[]
+  entitlements CustomerEntitlement[]
+
+  @@map("customers")
+}
+
+// ─── Categories ──────────────────────────────────────────────────────────────
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  iconName  String   @default("apps") @map("icon_name")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  apps      App[]
+  entitlements CustomerEntitlement[]
+
+  @@map("categories")
+}
+
+// ─── Apps ────────────────────────────────────────────────────────────────────
+
+model App {
+  id              String   @id @default(uuid())
+  categoryId      String   @map("category_id")
+  category        Category @relation(fields: [categoryId], references: [id])
+  name            String
+  packageName     String   @unique @map("package_name")
+  description     String?
+  developer       String   @default("Worldline")
+  version         String
+  versionCode     Int      @map("version_code")
+  apkUrl          String   @map("apk_url")
+  apkObjectName   String   @map("apk_object_name")
+  checksum        String   // SHA-256
+  sizeBytes       BigInt   @map("size_bytes")
+  minOsApi        Int      @default(26) @map("min_os_api")
+  iconUrl         String?  @map("icon_url")
+  screenshotUrls  String[] @map("screenshot_urls")
+  isPublished     Boolean  @default(false) @map("is_published")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  downloadEvents  DownloadEvent[]
+
+  @@map("apps")
+}
+
+// ─── Customer Entitlements ───────────────────────────────────────────────────
+
+model CustomerEntitlement {
+  id         String   @id @default(uuid())
+  customerId String   @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  categoryId String   @map("category_id")
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  grantedAt  DateTime @default(now()) @map("granted_at")
+
+  @@unique([customerId, categoryId])
+  @@map("customer_entitlements")
+}
+
+// ─── Terminals ───────────────────────────────────────────────────────────────
+
+model Terminal {
+  id             String         @id @default(uuid())
+  terminalId     String         @unique @map("terminal_id") // Durable provisioned ID
+  serialNo       String?        @map("serial_no")
+  imei           String?
+  model          String?
+  customerId     String         @map("customer_id")
+  customer       Customer       @relation(fields: [customerId], references: [id])
+  site           String?
+  branchCode     String?        @map("branch_code")
+  apiKey         String         @unique @map("api_key")
+  status         TerminalStatus @default(ACTIVE)
+  lastSeenAt     DateTime?      @map("last_seen_at")
+  lastLatitude   Decimal?       @map("last_latitude")
+  lastLongitude  Decimal?       @map("last_longitude")
+  enrolledAt     DateTime       @default(now()) @map("enrolled_at")
+  downloadEvents DownloadEvent[]
+
+  @@map("terminals")
+}
+
+enum TerminalStatus {
+  ACTIVE
+  RETIRED
+  WIPED
+}
+
+// ─── Download Events ─────────────────────────────────────────────────────────
+
+model DownloadEvent {
+  id              String        @id @default(uuid())
+  terminalId      String        @map("terminal_id")
+  terminal        Terminal      @relation(fields: [terminalId], references: [id])
+  appId           String        @map("app_id")
+  app             App           @relation(fields: [appId], references: [id])
+  version         String
+  timestamp       DateTime      @default(now())
+  latitude        Decimal?
+  longitude       Decimal?
+  accuracyMeters  Decimal?      @map("accuracy_meters")
+  networkType     String?       @map("network_type")
+  installStatus   InstallStatus @default(PENDING) @map("install_status")
+  ipAddress       String?       @map("ip_address")
+
+  @@map("download_events")
+}
+
+enum InstallStatus {
+  PENDING
+  DOWNLOADING
+  SUCCESS
+  FAILED
+}
+
+// ─── Admin Audit Log ─────────────────────────────────────────────────────────
+
+model AdminAuditLog {
+  id         String    @id @default(uuid())
+  adminId    String    @map("admin_id")
+  admin      AdminUser @relation(fields: [adminId], references: [id])
+  action     String    // e.g., "UPLOAD_APP", "GRANT_ENTITLEMENT"
+  entityType String    @map("entity_type")
+  entityId   String    @map("entity_id")
+  details    Json?
+  timestamp  DateTime  @default(now())
+
+  @@map("admin_audit_logs")
+}

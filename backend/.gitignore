@@ -1,0 +1,31 @@
+# Backend-specific ignores
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment secrets
+.env
+.env.local
+.env.production
+!.env.example
+
+# Prisma generated client (regenerated on `prisma generate`)
+node_modules/.prisma/
+
+# Logs
+logs/
+*.log
+
+# Uploaded APK cache
+uploads/
+*.apk
+
+# OS
+.DS_Store
+Thumbs.db

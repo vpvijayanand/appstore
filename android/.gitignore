@@ -1,0 +1,54 @@
+# Android project ignores (standard Android Studio .gitignore)
+
+# Gradle build output
+.gradle/
+build/
+app/build/
+
+# Local configuration
+local.properties
+*.properties
+
+# Android Studio project files
+.idea/
+*.iml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/libraries
+.idea/modules.xml
+.idea/misc.xml
+.idea/vcs.xml
+*.iws
+/out/
+
+# APK / AAB outputs (never commit binaries)
+*.apk
+*.aab
+*.ap_
+
+# Keystore files (very sensitive — NEVER commit)
+*.keystore
+*.jks
+*.p12
+release.keystore
+debug.keystore
+keystore.properties
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Proguard
+proguard/
+
+# Lint
+lint/
+
+# Captures
+captures/
+
+# NDK
+obj/
+*.so
