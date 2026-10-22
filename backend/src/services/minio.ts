@@ -32,24 +32,30 @@ export async function uploadApk(objectName: string, buffer: Buffer, contentType:
 }
 
 // Generate a 15-minute pre-signed download URL
-// NOTE: MinIO generates URLs with its internal hostname (usually 'localhost').
-// Android emulators reach the host machine via 10.0.2.2, not localhost.
-// We rewrite the hostname so the URL works from inside the emulator.
+// NOTE: MinIO generates URLs using its internal Docker-network hostname (e.g. "minio").
+// Clients outside the Docker network can't resolve that, so we rewrite the host
+// (and optionally port/scheme) to whatever is actually reachable:
+//   - Android emulator (dev):   MINIO_PUBLIC_HOST=10.0.2.2 (default), same port, http
+//   - Real device / production: MINIO_PUBLIC_HOST=<public domain>, MINIO_PUBLIC_SSL=true,
+//                                MINIO_PUBLIC_PORT="" (proxied through nginx on 443)
 export async function getPresignedUrl(objectName: string, expirySeconds = 900): Promise<string> {
-  // The host that Android devices/emulators use to reach this machine's services
   const publicHost = process.env.MINIO_PUBLIC_HOST || '10.0.2.2';
-  const minioPort  = process.env.MINIO_PORT || '9000';
+  const publicPort = process.env.MINIO_PUBLIC_PORT;
+  const publicSsl = process.env.MINIO_PUBLIC_SSL === 'true';
 
   try {
-    const url = await minioClient.presignedGetObject(BUCKET, objectName, expirySeconds);
-    // Replace internal hostname with the address reachable from the Android emulator
-    return url
-      .replace(/localhost/g, publicHost)
-      .replace(/127\.0\.0\.1/g, publicHost);
+    const rawUrl = await minioClient.presignedGetObject(BUCKET, objectName, expirySeconds);
+    const url = new URL(rawUrl);
+    url.protocol = publicSsl ? 'https:' : 'http:';
+    url.hostname = publicHost;
+    if (publicPort !== undefined) url.port = publicPort;
+    return url.toString();
   } catch (e) {
     // MinIO unavailable — return a placeholder so the app shows a clear error
     console.warn(`[MinIO] getPresignedUrl failed for "${objectName}":`, e);
-    return `http://${publicHost}:${minioPort}/${BUCKET}/${objectName}`;
+    const fallbackPort = publicPort !== undefined ? publicPort : (process.env.MINIO_PORT || '9005');
+    const portSuffix = fallbackPort ? `:${fallbackPort}` : '';
+    return `${publicSsl ? 'https' : 'http'}://${publicHost}${portSuffix}/${BUCKET}/${objectName}`;
   }
 }
 

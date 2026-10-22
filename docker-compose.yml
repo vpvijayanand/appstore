@@ -59,7 +59,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_minimum_32_characters}
       JWT_REFRESH_EXPIRES_IN: 7d
       MINIO_ENDPOINT: minio
-      MINIO_PORT: 9000
+      MINIO_PORT: 9005
       MINIO_USE_SSL: "false"
       MINIO_ACCESS_KEY: wlstore_minio
       MINIO_SECRET_KEY: wlstore_minio_secret

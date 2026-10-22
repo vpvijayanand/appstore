@@ -17,6 +17,12 @@ services:
   backend:
     ports:
       - "127.0.0.1:18092:3000"
+    environment:
+      # Real/physical Android devices reach MinIO through the nginx vhost
+      # (location /wl-apks/ -> 127.0.0.1:9005), not via the emulator-only 10.0.2.2 alias.
+      MINIO_PUBLIC_HOST: appstore.vijayanandpremnath.cloud
+      MINIO_PUBLIC_SSL: "true"
+      MINIO_PUBLIC_PORT: ""
 
   admin-portal:
     ports:
