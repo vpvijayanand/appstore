@@ -10,7 +10,7 @@ FROM golang:bookworm AS builder
 ENV CGO_ENABLED=0
 RUN go install github.com/minio/minio@latest
 
-FROM gcr.io/distroless/static-debian12
+FROM alpine:3.20
 COPY --from=builder /go/bin/minio /usr/local/bin/minio
 EXPOSE 9000 9001
 ENTRYPOINT ["/usr/local/bin/minio"]
