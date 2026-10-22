@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
-import { categoriesApi } from '../api';
-import { Tag, Plus, Trash2, Loader2 } from 'lucide-react';
+import { categoriesApi, appsApi } from '../api';
+import { Tag, Plus, Trash2, Loader2, Package, CheckCircle, XCircle } from 'lucide-react';
 
 interface Category { id: string; name: string; iconName: string; sortOrder: number; _count: { apps: number }; }
+interface CategoryApp { id: string; name: string; version: string; developer: string; isPublished: boolean; }
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', iconName: 'apps' });
+  const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
+  const [categoryApps, setCategoryApps] = useState<CategoryApp[]>([]);
+  const [loadingApps, setLoadingApps] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -29,6 +33,19 @@ export default function CategoriesPage() {
     if (!confirm(`Delete category "${name}"?`)) return;
     await categoriesApi.delete(id);
     load();
+  };
+
+  const viewApps = async (cat: Category) => {
+    setViewingCategory(cat);
+    setLoadingApps(true);
+    try {
+      const res = await appsApi.list({ categoryId: cat.id, limit: 100 });
+      setCategoryApps(res.data.apps);
+    } catch {
+      setCategoryApps([]);
+    } finally {
+      setLoadingApps(false);
+    }
   };
 
   const ICON_MAP: Record<string, string> = {
@@ -55,7 +72,12 @@ export default function CategoriesPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
           {categories.map(cat => (
-            <div key={cat.id} className="card" style={{ position: 'relative' }}>
+            <div
+              key={cat.id}
+              className="card"
+              style={{ position: 'relative', cursor: 'pointer' }}
+              onClick={() => viewApps(cat)}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
                 <div style={{
                   width: '48px', height: '48px', borderRadius: '14px',
@@ -71,7 +93,7 @@ export default function CategoriesPage() {
                 </div>
                 <button
                   className="btn btn-danger btn-sm btn-icon"
-                  onClick={() => del(cat.id, cat.name)}
+                  onClick={e => { e.stopPropagation(); del(cat.id, cat.name); }}
                   style={{ marginLeft: 'auto' }}
                   title="Delete"
                 >
@@ -129,6 +151,48 @@ export default function CategoriesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingCategory && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setViewingCategory(null)}>
+          <div className="modal" style={{ width: '480px', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">{ICON_MAP[viewingCategory.iconName] || '📦'} {viewingCategory.name} — Apps</h3>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setViewingCategory(null)}>✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {loadingApps ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                  <Loader2 size={28} className="spinner" color="var(--text-muted)" />
+                </div>
+              ) : categoryApps.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <Package size={32} style={{ marginBottom: '10px', opacity: 0.3 }} />
+                  <div>No apps in this category yet.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {categoryApps.map(app => (
+                    <div key={app.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      padding: '10px 14px', borderRadius: 'var(--radius-sm)',
+                      background: 'var(--bg-surface-2)', border: '1px solid var(--border-default)',
+                    }}>
+                      <Package size={18} color="var(--text-muted)" />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: '13.5px' }}>{app.name}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{app.developer} · v{app.version}</div>
+                      </div>
+                      {app.isPublished
+                        ? <span className="badge badge-success"><CheckCircle size={11} /> Published</span>
+                        : <span className="badge badge-warning"><XCircle size={11} /> Draft</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
