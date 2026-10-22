@@ -17,6 +17,10 @@ import categoriesRouter from './routes/categories';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust the nginx reverse proxy (single hop) so express-rate-limit and req.ip
+// correctly read X-Forwarded-For instead of throwing/misidentifying clients.
+app.set('trust proxy', 1);
+
 // ── Security ──────────────────────────────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },

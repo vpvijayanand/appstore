@@ -76,7 +76,7 @@ router.post('/admin/refresh', async (req: Request, res: Response) => {
 // ── Terminal Enrollment ───────────────────────────────────────────────────────
 const enrollSchema = z.object({
   terminalId: z.string().min(3),
-  customerId: z.string().uuid(),
+  customerId: z.string().min(1),
   serialNo: z.string().optional(),
   imei: z.string().optional(),
   model: z.string().optional(),
@@ -88,8 +88,11 @@ router.post('/terminal/enroll', async (req: Request, res: Response) => {
   try {
     const data = enrollSchema.parse(req.body);
 
-    // Check customer exists
-    const customer = await prisma.customer.findUnique({ where: { id: data.customerId } });
+    // Accept either the customer's UUID or its short code (e.g. "RETAIL_A")
+    const isUuid = z.string().uuid().safeParse(data.customerId).success;
+    const customer = await prisma.customer.findUnique({
+      where: isUuid ? { id: data.customerId } : { code: data.customerId.toUpperCase() },
+    });
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
     // Upsert terminal
@@ -99,7 +102,7 @@ router.post('/terminal/enroll', async (req: Request, res: Response) => {
       update: { lastSeenAt: new Date(), status: 'ACTIVE' },
       create: {
         terminalId: data.terminalId,
-        customerId: data.customerId,
+        customerId: customer.id,
         serialNo: data.serialNo,
         imei: data.imei,
         model: data.model,
