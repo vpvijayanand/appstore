@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { terminalsApi, customersApi } from '../api';
-import { Monitor, MapPin, RefreshCw, Loader2, Clock, Wifi, FileSpreadsheet } from 'lucide-react';
+import { Monitor, MapPin, RefreshCw, Loader2, Clock, FileSpreadsheet } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { exportToExcel } from '../utils/exportExcel';
 

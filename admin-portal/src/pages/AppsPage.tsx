@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { appsApi, categoriesApi } from '../api';
-import { Plus, Upload, Search, Package, Trash2, Edit, Eye, CheckCircle, XCircle, Loader2, Download, FileSpreadsheet } from 'lucide-react';
+import { Plus, Upload, Search, Package, Trash2, Eye, CheckCircle, XCircle, Loader2, Download, FileSpreadsheet } from 'lucide-react';
 import { exportToExcel } from '../utils/exportExcel';
 
 interface App {
