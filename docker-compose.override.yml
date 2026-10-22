@@ -1,0 +1,25 @@
+# Local development port mappings.
+# Docker Compose auto-loads this file whenever you run `docker compose up`
+# with no explicit -f flags (e.g. on your dev machine), so local ports work
+# exactly as before. On the production VPS, deploy with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# which intentionally does NOT include this file, avoiding any conflicting
+# host ports from being concatenated with the prod port mappings.
+
+services:
+  postgres:
+    ports:
+      - "5435:5432"
+
+  minio:
+    ports:
+      - "9005:9005"   # S3 API
+      - "9006:9006"   # MinIO Console
+
+  backend:
+    ports:
+      - "3000:3000"
+
+  admin-portal:
+    ports:
+      - "8080:80"
