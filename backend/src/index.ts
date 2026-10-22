@@ -13,6 +13,7 @@ import analyticsRouter from './routes/analytics';
 import customersRouter from './routes/customers';
 import terminalsRouter from './routes/terminals';
 import categoriesRouter from './routes/categories';
+import { initMinIO } from './services/minio';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -74,9 +75,15 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🚀 WL Playstore API running on port ${PORT}`);
-  console.log(`   Health: http://localhost:${PORT}/health`);
-});
+initMinIO()
+  .catch((err) => {
+    console.error('[MinIO] Bucket initialization failed (uploads/downloads will not work until this is fixed):', err);
+  })
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 WL Playstore API running on port ${PORT}`);
+      console.log(`   Health: http://localhost:${PORT}/health`);
+    });
+  });
 
 export default app;
