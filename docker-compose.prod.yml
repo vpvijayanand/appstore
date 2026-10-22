@@ -1,5 +1,3 @@
-version: '3.9'
-
 # Production port overrides for the shared Ubuntu VPS (46.202.160.63).
 # Host ports 3000 and 8080 are already used by other apps on this box,
 # and DB/storage ports are bound to 127.0.0.1 only (never exposed publicly).
