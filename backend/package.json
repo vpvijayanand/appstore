@@ -9,12 +9,12 @@
     "start": "node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed": "node -r ts-node/register prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "prisma:reset": "prisma migrate reset --force"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "node -r ts-node/register prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.7.1",
