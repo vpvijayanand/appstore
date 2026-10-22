@@ -81,7 +81,7 @@ cp .env.example .env
 npm install
 npx prisma generate
 npx prisma migrate dev --name init
-npx ts-node prisma/seed.ts
+npx ts-node prisma/seed.cts
 npm run dev
 ```
 
@@ -133,7 +133,7 @@ docker-compose up -d
 
 # 5. Run migrations
 docker-compose exec backend npx prisma migrate deploy
-docker-compose exec backend npx ts-node prisma/seed.ts
+docker-compose exec backend npx ts-node prisma/seed.cts
 
 # 6. Get SSL certificate
 certbot certonly --standalone -d your-domain.com
