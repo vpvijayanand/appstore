@@ -70,6 +70,7 @@ export const appsApi = {
   update: (id: string, data: Record<string, unknown>) =>
     api.patch(`/apps/${id}`, data),
   delete: (id: string) => api.delete(`/apps/${id}`),
+  getDownloads: (id: string) => api.get(`/apps/${id}/downloads`),
 };
 
 // ── Categories ────────────────────────────────────────────────────────────────
@@ -85,8 +86,9 @@ export const customersApi = {
   list: () => api.get('/customers'),
   get: (id: string) => api.get(`/customers/${id}`),
   create: (data: Record<string, string>) => api.post('/customers', data),
-  updateEntitlements: (id: string, categoryIds: string[]) =>
-    api.put(`/customers/${id}/entitlements`, { categoryIds }),
+  updateEntitlements: (id: string, appIds: string[]) =>
+    api.put(`/customers/${id}/entitlements`, { appIds }),
+  getDownloads: (id: string) => api.get(`/customers/${id}/downloads`),
 };
 
 // ── Terminals ─────────────────────────────────────────────────────────────────

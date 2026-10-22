@@ -104,24 +104,6 @@ async function main() {
   ]);
   console.log('✅ Customers created:', customers.map(c => c.name).join(', '));
 
-  // ── Customer Entitlements ─────────────────────────────────────────────────
-  await prisma.customerEntitlement.createMany({
-    skipDuplicates: true,
-    data: [
-      // Retailer A: Payment + Utilities
-      { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', categoryId: '11111111-1111-1111-1111-111111111111' },
-      { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', categoryId: '22222222-2222-2222-2222-222222222222' },
-      // Bank B: Payment + Reporting + Security
-      { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', categoryId: '11111111-1111-1111-1111-111111111111' },
-      { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', categoryId: '33333333-3333-3333-3333-333333333333' },
-      { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', categoryId: '44444444-4444-4444-4444-444444444444' },
-      // Logistics C: Utilities + Reporting
-      { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', categoryId: '22222222-2222-2222-2222-222222222222' },
-      { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', categoryId: '33333333-3333-3333-3333-333333333333' },
-    ],
-  });
-  console.log('✅ Customer entitlements configured');
-
   // ── Apps ──────────────────────────────────────────────────────────────────
   const apps = await Promise.all([
     prisma.app.upsert({
@@ -231,6 +213,25 @@ async function main() {
     }),
   ]);
   console.log('✅ Apps created:', apps.map(a => a.name).join(', '));
+
+  // ── Customer Entitlements ─────────────────────────────────────────────────
+  await prisma.customerEntitlement.createMany({
+    skipDuplicates: true,
+    data: [
+      // Retailer A: App 1 + App 2 (Payment), App 3 (Utilities)
+      { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app11111-1111-1111-1111-111111111111' },
+      { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app22222-2222-2222-2222-222222222222' },
+      { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app33333-3333-3333-3333-333333333333' },
+      // Bank B: App 1 (Payment), App 4 (Reporting), App 5 (Security)
+      { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app11111-1111-1111-1111-111111111111' },
+      { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app44444-4444-4444-4444-444444444444' },
+      { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app55555-5555-5555-5555-555555555555' },
+      // Logistics C: App 3 (Utilities), App 4 (Reporting)
+      { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', appId: 'app33333-3333-3333-3333-333333333333' },
+      { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', appId: 'app44444-4444-4444-4444-444444444444' },
+    ],
+  });
+  console.log('✅ Customer entitlements configured');
 
   // ── Terminals ─────────────────────────────────────────────────────────────
   const terminalData = [

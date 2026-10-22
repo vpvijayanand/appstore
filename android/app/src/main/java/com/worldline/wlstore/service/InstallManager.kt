@@ -32,7 +32,13 @@ object InstallManager {
             cacheDir.mkdirs()
             val apkFile = File(cacheDir, fileName)
 
-            val connection = java.net.URL(downloadUrl).openConnection() as java.net.HttpURLConnection
+            val targetUrl = downloadUrl
+                .replace("http://localhost:", "http://10.0.2.2:")
+                .replace("https://localhost:", "https://10.0.2.2:")
+                .replace("http://127.0.0.1:", "http://10.0.2.2:")
+                .replace("https://127.0.0.1:", "https://10.0.2.2:")
+
+            val connection = java.net.URL(targetUrl).openConnection() as java.net.HttpURLConnection
             connection.connect()
             val contentLength = connection.contentLengthLong
 
@@ -145,10 +151,15 @@ object InstallManager {
             "${context.packageName}.fileprovider",
             apkFile
         )
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, "application/vnd.android.package-archive")
+        // Use ACTION_INSTALL_PACKAGE instead of ACTION_VIEW to avoid the
+        // confusing "Keep Shopping" button that appears in the system
+        // package installer when triggered via ACTION_VIEW.
+        val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+            data = apkUri
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+            putExtra(Intent.EXTRA_RETURN_RESULT, true)
         }
         context.startActivity(intent)
     }

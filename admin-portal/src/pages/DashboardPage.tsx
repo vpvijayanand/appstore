@@ -128,8 +128,8 @@ export default function DashboardPage() {
 
       {/* Stat Cards */}
       <div className="stats-grid">
-        {STAT_CARDS(stats).map(({ label, value, icon: Icon, color, bg, change, positive }) => (
-          <div key={label} className="stat-card" style={{ '--stat-color': color, '--stat-bg': bg } as React.CSSProperties}>
+        {STAT_CARDS(stats).map(({ label, value, icon: Icon, color, bg, change, positive }, index) => (
+          <div key={label} className="stat-card" style={{ '--stat-color': color, '--stat-bg': bg, animationDelay: `${index * 0.1}s` } as React.CSSProperties}>
             <div className="stat-icon">
               <Icon size={20} />
             </div>

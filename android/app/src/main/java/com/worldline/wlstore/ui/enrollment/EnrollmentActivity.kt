@@ -3,12 +3,13 @@ package com.worldline.wlstore.ui.enrollment
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import androidx.security.crypto.MasterKeys
 import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.EnrollmentRequest
@@ -33,13 +34,21 @@ class EnrollmentActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Check if already enrolled
-        val prefs = getSecurePrefs()
-        val existingKey = prefs.getString(PREF_API_KEY, null)
-        if (existingKey != null) {
-            ApiClient.setApiKey(existingKey)
-            navigateToCatalog()
-            return
+        // Check if already enrolled — wrap in try/catch because EncryptedSharedPreferences
+        // can throw GeneralSecurityException / KeyStoreException on first boot or if the
+        // Android Keystore is not yet available (seen on API 26-28 and some Android 12+ devices).
+        try {
+            val prefs = getSecurePrefs()
+            val existingKey = prefs.getString(PREF_API_KEY, null)
+            if (existingKey != null) {
+                ApiClient.setApiKey(existingKey)
+                navigateToCatalog()
+                return
+            }
+        } catch (e: Exception) {
+            // Keystore not ready yet — fall through to show enrollment screen.
+            // The user will need to re-enroll; stored key (if any) is inaccessible.
+            Log.w("WLStore", "EncryptedSharedPreferences unavailable on startup: ${e.message}")
         }
 
         setContentView(R.layout.activity_enrollment)
@@ -88,11 +97,16 @@ class EnrollmentActivity : AppCompatActivity() {
                     val data = response.body()!!
 
                     // Store API key securely
-                    getSecurePrefs().edit()
-                        .putString(PREF_API_KEY, data.apiKey)
-                        .putString(PREF_TERMINAL_ID, data.terminalId)
-                        .putString(PREF_CUSTOMER_ID, data.customerId)
-                        .apply()
+                    try {
+                        getSecurePrefs().edit()
+                            .putString(PREF_API_KEY, data.apiKey)
+                            .putString(PREF_TERMINAL_ID, data.terminalId)
+                            .putString(PREF_CUSTOMER_ID, data.customerId)
+                            .apply()
+                    } catch (e: Exception) {
+                        Log.e("WLStore", "Could not save API key to EncryptedSharedPreferences: ${e.message}")
+                        // Non-fatal: API key is still set in memory for this session
+                    }
 
                     ApiClient.setApiKey(data.apiKey)
                     tvStatus.text = "✅ Enrolled! Launching store..."
@@ -116,13 +130,16 @@ class EnrollmentActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun getSecurePrefs() = EncryptedSharedPreferences.create(
-        this,
-        "wl_store_prefs",
-        MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private fun getSecurePrefs(): android.content.SharedPreferences {
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        return EncryptedSharedPreferences.create(
+            "wl_store_prefs",
+            masterKeyAlias,
+            this,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
 
     companion object {
         const val PREF_API_KEY = "api_key"

@@ -10,7 +10,7 @@ router.get('/', requireAdmin, async (_req, res) => {
   const customers = await prisma.customer.findMany({
     include: {
       _count: { select: { terminals: true } },
-      entitlements: { include: { category: { select: { id: true, name: true, iconName: true } } } },
+      entitlements: { include: { app: { select: { id: true, name: true, iconUrl: true } } } },
     },
     orderBy: { name: 'asc' },
   });
@@ -22,7 +22,7 @@ router.get('/:id', requireAdmin, async (req, res) => {
     where: { id: req.params.id },
     include: {
       terminals: { orderBy: { enrolledAt: 'desc' } },
-      entitlements: { include: { category: true } },
+      entitlements: { include: { app: { include: { category: true } } } },
     },
   });
   if (!customer) return res.status(404).json({ error: 'Customer not found' });
@@ -45,21 +45,38 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 });
 
 router.put('/:id/entitlements', requireAdmin, async (req: Request, res: Response) => {
-  const { categoryIds } = req.body as { categoryIds: string[] };
-  if (!Array.isArray(categoryIds)) return res.status(400).json({ error: 'categoryIds array required' });
+  const { appIds } = req.body as { appIds: string[] };
+  if (!Array.isArray(appIds)) return res.status(400).json({ error: 'appIds array required' });
 
   // Remove old, add new
   await prisma.customerEntitlement.deleteMany({ where: { customerId: req.params.id } });
   await prisma.customerEntitlement.createMany({
-    data: categoryIds.map(catId => ({ customerId: req.params.id, categoryId: catId })),
+    data: appIds.map(appId => ({ customerId: req.params.id, appId })),
     skipDuplicates: true,
   });
 
   await prisma.adminAuditLog.create({
-    data: { adminId: req.admin!.adminId, action: 'UPDATE_ENTITLEMENTS', entityType: 'Customer', entityId: req.params.id, details: { categoryIds } },
+    data: { adminId: req.admin!.adminId, action: 'UPDATE_ENTITLEMENTS', entityType: 'Customer', entityId: req.params.id, details: { appIds } },
   });
 
   return res.json({ message: 'Entitlements updated' });
+});
+
+router.get('/:id/downloads', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const downloads = await prisma.downloadEvent.findMany({
+      where: { terminal: { customerId: req.params.id } },
+      include: {
+        app: { select: { name: true, version: true, iconUrl: true } },
+        terminal: { select: { terminalId: true } }
+      },
+      orderBy: { timestamp: 'desc' },
+      take: 50
+    });
+    return res.json({ downloads });
+  } catch {
+    return res.status(500).json({ error: 'Failed to fetch customer downloads' });
+  }
 });
 
 export default router;

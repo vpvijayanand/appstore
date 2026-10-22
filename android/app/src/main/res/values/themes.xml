@@ -1,0 +1,35 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Base application theme (no action bar — screens manage their own toolbars) -->
+    <style name="Theme.WLStore" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/wl_green</item>
+        <item name="colorPrimaryVariant">@color/wl_green_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/wl_green</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:colorBackground">@color/wl_background</item>
+        <item name="android:statusBarColor">@color/wl_background</item>
+        <item name="android:navigationBarColor">@color/wl_background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+    </style>
+
+    <!-- Enrollment screen: full dark, no action bar -->
+    <style name="Theme.WLStore.Enrollment" parent="Theme.WLStore">
+        <item name="android:windowBackground">@color/wl_background</item>
+    </style>
+
+    <!-- Catalog / main screen: needs an ActionBar for supportActionBar?.title to work -->
+    <style name="Theme.WLStore.Catalog" parent="Theme.MaterialComponents.DayNight">
+        <item name="colorPrimary">@color/wl_green</item>
+        <item name="colorPrimaryVariant">@color/wl_green_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/wl_green</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:colorBackground">@color/wl_background</item>
+        <item name="android:statusBarColor">@color/wl_background</item>
+        <item name="android:navigationBarColor">@color/wl_background</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:windowBackground">@color/wl_background</item>
+    </style>
+
+</resources>

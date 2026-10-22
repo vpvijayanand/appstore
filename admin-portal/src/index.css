@@ -412,6 +412,7 @@ input, select, textarea { font-family: inherit; }
   transition: all var(--transition-normal);
   position: relative;
   overflow: hidden;
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
 .stat-card::before {

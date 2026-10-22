@@ -170,4 +170,23 @@ router.get('/:id/download-url', requireAdmin, async (req: Request, res: Response
   return res.json({ url });
 });
 
+// ── Get App Download History ──────────────────────────────────────────────────
+router.get('/:id/downloads', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const downloads = await prisma.downloadEvent.findMany({
+      where: { appId: req.params.id },
+      include: {
+        terminal: {
+          select: { terminalId: true, branchCode: true, status: true, customer: { select: { name: true } } }
+        }
+      },
+      orderBy: { timestamp: 'desc' },
+      take: 50
+    });
+    return res.json({ downloads });
+  } catch {
+    return res.status(500).json({ error: 'Failed to fetch download history' });
+  }
+});
+
 export default router;

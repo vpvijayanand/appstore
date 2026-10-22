@@ -65,8 +65,17 @@ router.get('/events', requireAdmin, async (req: Request, res: Response) => {
     prisma.downloadEvent.count({ where }),
   ]);
 
-  return res.json({ events, total, page, pages: Math.ceil(total / limit) });
+  // Prisma returns Decimal columns as strings — coerce to Number for JSON consumers
+  const serialised = events.map(e => ({
+    ...e,
+    latitude: e.latitude != null ? Number(e.latitude) : null,
+    longitude: e.longitude != null ? Number(e.longitude) : null,
+    accuracyMeters: e.accuracyMeters != null ? Number(e.accuracyMeters) : null,
+  }));
+
+  return res.json({ events: serialised, total, page, pages: Math.ceil(total / limit) });
 });
+
 
 // ── GPS Map Data ──────────────────────────────────────────────────────────────
 router.get('/map', requireAdmin, async (req: Request, res: Response) => {

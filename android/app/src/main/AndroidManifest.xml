@@ -35,6 +35,7 @@
         <activity
             android:name=".ui.enrollment.EnrollmentActivity"
             android:exported="true"
+            android:theme="@style/Theme.WLStore.Enrollment"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -44,11 +45,22 @@
 
         <activity
             android:name=".ui.catalog.CatalogActivity"
+            android:theme="@style/Theme.WLStore.Catalog"
             android:exported="false" />
 
         <activity
             android:name=".ui.detail.AppDetailActivity"
+            android:theme="@style/Theme.WLStore.Catalog"
             android:exported="false" />
+
+        <!-- Receives PackageInstaller session results for silent APK installs -->
+        <receiver
+            android:name=".service.InstallResultReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.worldline.wlstore.INSTALL_RESULT" />
+            </intent-filter>
+        </receiver>
 
         <!-- File provider for APK installs -->
         <provider

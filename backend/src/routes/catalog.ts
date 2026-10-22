@@ -13,45 +13,54 @@ router.get('/', requireTerminal, async (req: Request, res: Response) => {
   try {
     const { customerId } = req.terminal!;
 
-    // Fetch entitlements for this customer
+    // Fetch entitlements for this customer (which now point to specific apps)
     const entitlements = await prisma.customerEntitlement.findMany({
       where: { customerId },
       include: {
-        category: {
+        app: {
           include: {
-            apps: {
-              where: { isPublished: true },
-              orderBy: { name: 'asc' },
-              select: {
-                id: true,
-                name: true,
-                packageName: true,
-                description: true,
-                developer: true,
-                version: true,
-                versionCode: true,
-                sizeBytes: true,
-                minOsApi: true,
-                iconUrl: true,
-                checksum: true,
-                updatedAt: true,
-              },
-            },
-          },
+            category: true,
+          }
         },
       },
-      orderBy: { category: { sortOrder: 'asc' } },
     });
 
-    const catalog = entitlements.map(e => ({
-      categoryId: e.category.id,
-      categoryName: e.category.name,
-      categoryIcon: e.category.iconName,
-      apps: e.category.apps.map(app => ({
-        ...app,
-        sizeBytes: app.sizeBytes.toString(),
-      })),
-    }));
+    // We need to return categories with their apps to keep the Android UI intact.
+    // Group the entitled apps by their category.
+    const categoriesMap = new Map<string, any>();
+
+    for (const e of entitlements) {
+      if (!e.app.isPublished) continue;
+      
+      const cat = e.app.category;
+      if (!categoriesMap.has(cat.id)) {
+        categoriesMap.set(cat.id, {
+          categoryId: cat.id,
+          categoryName: cat.name,
+          categoryIcon: cat.iconName,
+          sortOrder: cat.sortOrder,
+          apps: [],
+        });
+      }
+      
+      const categoryEntry = categoriesMap.get(cat.id);
+      categoryEntry.apps.push({
+        id: e.app.id,
+        name: e.app.name,
+        packageName: e.app.packageName,
+        description: e.app.description,
+        developer: e.app.developer,
+        version: e.app.version,
+        versionCode: e.app.versionCode,
+        sizeBytes: e.app.sizeBytes.toString(),
+        minOsApi: e.app.minOsApi,
+        iconUrl: e.app.iconUrl,
+        checksum: e.app.checksum,
+        updatedAt: e.app.updatedAt,
+      });
+    }
+
+    const catalog = Array.from(categoriesMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
 
     return res.json({ catalog, customerId });
   } catch (e) {
@@ -78,7 +87,7 @@ router.get('/download/:appId', requireTerminal, async (req: Request, res: Respon
     }
 
     const entitled = await prisma.customerEntitlement.findUnique({
-      where: { customerId_categoryId: { customerId, categoryId: app.categoryId } },
+      where: { customerId_appId: { customerId, appId: app.id } },
     });
 
     if (!entitled) {

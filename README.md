@@ -36,6 +36,11 @@ Internet (HTTPS)
 
 ```
 WL_Playstore/
+├── docs/                 # Documentation & security architecture specifications
+│   ├── SCALE_AND_PERFORMANCE.md          # Concurrency, scaling & high-availability blueprint
+│   ├── SECURITY_OVERVIEW.md               # Enterprise Security Architecture & controls
+│   ├── Private_App_Store_Architecture.docx # Full original architecture specification
+│   └── extracted_doc.txt                  # Text version of architecture spec
 ├── backend/              # Node.js + Express + TypeScript API
 │   ├── prisma/           # Database schema + seed data
 │   └── src/

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { appsApi, categoriesApi } from '../api';
-import { Plus, Upload, Search, Package, Trash2, Edit, Eye, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Plus, Upload, Search, Package, Trash2, Edit, Eye, CheckCircle, XCircle, Loader2, Download, FileSpreadsheet } from 'lucide-react';
+import { exportToExcel } from '../utils/exportExcel';
 
 interface App {
   id: string;
@@ -38,6 +39,9 @@ export default function AppsPage() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [downloadsModalApp, setDownloadsModalApp] = useState<App | null>(null);
+  const [appDownloads, setAppDownloads] = useState<any[]>([]);
+  const [loadingDownloads, setLoadingDownloads] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -98,6 +102,33 @@ export default function AppsPage() {
     load();
   };
 
+  const showDownloads = async (app: App) => {
+    setDownloadsModalApp(app);
+    setLoadingDownloads(true);
+    try {
+      const res = await appsApi.getDownloads(app.id);
+      setAppDownloads(res.data.downloads);
+    } catch (e) {
+      alert('Failed to load downloads');
+    } finally {
+      setLoadingDownloads(false);
+    }
+  };
+
+  const exportExcel = () => {
+    const rows = apps.map(app => ({
+      'Name':        app.name,
+      'Package':     app.packageName,
+      'Category':    app.category.name,
+      'Developer':   app.developer,
+      'Version':     app.version,
+      'Size':        formatBytes(app.sizeBytes),
+      'Status':      app.isPublished ? 'Published' : 'Draft',
+      'Created At':  new Date(app.createdAt).toLocaleDateString(),
+    }));
+    exportToExcel(rows, 'apps_catalog', 'Apps');
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -105,9 +136,15 @@ export default function AppsPage() {
           <h2 className="page-title">App Catalog</h2>
           <p className="page-subtitle">{apps.length} apps across {categories.length} categories</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> Upload APK
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn btn-secondary" onClick={exportExcel} disabled={loading || apps.length === 0}>
+            <FileSpreadsheet size={15} />
+            Export Excel
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            <Plus size={16} /> Upload APK
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -182,6 +219,9 @@ export default function AppsPage() {
                         title={app.isPublished ? 'Unpublish' : 'Publish'}
                       >
                         {app.isPublished ? <XCircle size={13} /> : <CheckCircle size={13} />}
+                      </button>
+                      <button className="btn btn-secondary btn-sm btn-icon" onClick={() => showDownloads(app)} title="View Downloads">
+                        <Download size={13} />
                       </button>
                       <button className="btn btn-secondary btn-sm btn-icon" title="Preview">
                         <Eye size={13} />
@@ -307,6 +347,59 @@ export default function AppsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Downloads Modal */}
+      {downloadsModalApp && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setDownloadsModalApp(null)}>
+          <div className="modal" style={{ width: '800px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">Download History</h3>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>{downloadsModalApp.name} (v{downloadsModalApp.version})</div>
+              </div>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setDownloadsModalApp(null)}>✕</button>
+            </div>
+            
+            {loadingDownloads ? (
+              <div style={{ padding: '40px', textAlign: 'center' }}><Loader2 size={24} className="spinner" /></div>
+            ) : (
+              <div className="table-wrapper" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                <table>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                    <tr>
+                      <th>Date / Time</th>
+                      <th>Terminal ID</th>
+                      <th>Branch</th>
+                      <th>Customer</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appDownloads.map(d => (
+                      <tr key={d.id}>
+                        <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{new Date(d.timestamp).toLocaleString()}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>{d.terminal.terminalId}</td>
+                        <td>{d.terminal.branchCode || '-'}</td>
+                        <td>{d.terminal.customer.name}</td>
+                        <td>
+                          <span className={`badge ${d.installStatus === 'SUCCESS' ? 'badge-success' : d.installStatus === 'FAILED' ? 'badge-error' : 'badge-info'}`}>
+                            {d.installStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    {appDownloads.length === 0 && (
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No downloads recorded yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

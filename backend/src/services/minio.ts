@@ -32,12 +32,24 @@ export async function uploadApk(objectName: string, buffer: Buffer, contentType:
 }
 
 // Generate a 15-minute pre-signed download URL
+// NOTE: MinIO generates URLs with its internal hostname (usually 'localhost').
+// Android emulators reach the host machine via 10.0.2.2, not localhost.
+// We rewrite the hostname so the URL works from inside the emulator.
 export async function getPresignedUrl(objectName: string, expirySeconds = 900): Promise<string> {
+  // The host that Android devices/emulators use to reach this machine's services
+  const publicHost = process.env.MINIO_PUBLIC_HOST || '10.0.2.2';
+  const minioPort  = process.env.MINIO_PORT || '9000';
+
   try {
-    return await minioClient.presignedGetObject(BUCKET, objectName, expirySeconds);
-  } catch {
-    // If object doesn't exist (demo mode), return a placeholder
-    return `http://localhost:${process.env.MINIO_PORT || '9000'}/${BUCKET}/${objectName}?demo=true`;
+    const url = await minioClient.presignedGetObject(BUCKET, objectName, expirySeconds);
+    // Replace internal hostname with the address reachable from the Android emulator
+    return url
+      .replace(/localhost/g, publicHost)
+      .replace(/127\.0\.0\.1/g, publicHost);
+  } catch (e) {
+    // MinIO unavailable — return a placeholder so the app shows a clear error
+    console.warn(`[MinIO] getPresignedUrl failed for "${objectName}":`, e);
+    return `http://${publicHost}:${minioPort}/${BUCKET}/${objectName}`;
   }
 }
 

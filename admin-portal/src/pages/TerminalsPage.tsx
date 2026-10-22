@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { terminalsApi } from '../api';
-import { Monitor, MapPin, RefreshCw, Loader2, Clock, Wifi } from 'lucide-react';
+import { terminalsApi, customersApi } from '../api';
+import { Monitor, MapPin, RefreshCw, Loader2, Clock, Wifi, FileSpreadsheet } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
+import { exportToExcel } from '../utils/exportExcel';
 
 interface Terminal {
   id: string;
@@ -28,15 +29,25 @@ export default function TerminalsPage() {
   const [terminals, setTerminals] = useState<Terminal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [customers, setCustomers] = useState<{id: string, name: string}[]>([]);
 
   const load = () => {
     setLoading(true);
-    terminalsApi.list(filter ? { status: filter } : {})
-      .then(res => setTerminals(res.data.terminals))
-      .finally(() => setLoading(false));
+    const params: any = {};
+    if (filter) params.status = filter;
+    if (customerFilter) params.customerId = customerFilter;
+    
+    Promise.all([
+      terminalsApi.list(params),
+      customersApi.list()
+    ]).then(([termRes, custRes]) => {
+      setTerminals(termRes.data.terminals);
+      setCustomers(custRes.data.customers);
+    }).finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [filter]);
+  useEffect(() => { load(); }, [filter, customerFilter]);
 
   const updateStatus = async (id: string, status: string) => {
     if (!confirm(`Change terminal status to ${status}?`)) return;
@@ -50,6 +61,24 @@ export default function TerminalsPage() {
     alert(`New API key: ${res.data.newKey}`);
   };
 
+  const exportExcel = () => {
+    const rows = terminals.map(t => ({
+      'Terminal ID':   t.terminalId,
+      'Serial No':     t.serialNo || '',
+      'Customer':      t.customer.name,
+      'Customer Code': t.customer.code,
+      'Model':         t.model || '',
+      'Site':          t.site || '',
+      'Status':        t.status,
+      'Enrolled At':   format(new Date(t.enrolledAt), 'dd MMM yyyy HH:mm'),
+      'Last Seen':     t.lastSeenAt ? format(new Date(t.lastSeenAt), 'dd MMM yyyy HH:mm') : '',
+      'Latitude':      t.lastLatitude  != null ? t.lastLatitude.toFixed(6)  : '',
+      'Longitude':     t.lastLongitude != null ? t.lastLongitude.toFixed(6) : '',
+      'Total Downloads': t._count.downloadEvents,
+    }));
+    exportToExcel(rows, 'terminals', 'Terminals');
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -58,6 +87,12 @@ export default function TerminalsPage() {
           <p className="page-subtitle">{terminals.length} enrolled devices</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <select className="form-select" style={{ width: '200px' }} value={customerFilter} onChange={e => setCustomerFilter(e.target.value)}>
+            <option value="">All Customers</option>
+            {customers.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
           <select className="form-select" style={{ width: '150px' }} value={filter} onChange={e => setFilter(e.target.value)}>
             <option value="">All Statuses</option>
             <option value="ACTIVE">Active</option>
@@ -67,6 +102,10 @@ export default function TerminalsPage() {
           <button className="btn btn-secondary" onClick={load}>
             {loading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}
             Refresh
+          </button>
+          <button className="btn btn-primary" onClick={exportExcel} disabled={loading}>
+            <FileSpreadsheet size={14} />
+            Export Excel
           </button>
         </div>
       </div>

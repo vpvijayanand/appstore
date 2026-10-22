@@ -1,0 +1,25 @@
+version: '3.9'
+
+# Production port overrides for the shared Ubuntu VPS (46.202.160.63).
+# Host ports 3000 and 8080 are already used by other apps on this box,
+# and DB/storage ports are bound to 127.0.0.1 only (never exposed publicly).
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d postgres minio backend admin-portal
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:5435:5432"
+
+  minio:
+    ports:
+      - "127.0.0.1:9005:9005"
+      - "127.0.0.1:9006:9006"
+
+  backend:
+    ports:
+      - "127.0.0.1:18092:3000"
+
+  admin-portal:
+    ports:
+      - "127.0.0.1:18093:80"

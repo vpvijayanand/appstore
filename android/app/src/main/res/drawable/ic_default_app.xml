@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default placeholder icon for apps that have no icon URL -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- Background circle -->
+    <path
+        android:fillColor="#1A1D27"
+        android:pathData="M24,0 A24,24 0 1,1 24,48 A24,24 0 1,1 24,0 Z" />
+
+    <!-- Grid of 4 squares representing an app icon -->
+    <path
+        android:fillColor="#01875F"
+        android:pathData="M13,13 h9 v9 h-9 Z
+                          M26,13 h9 v9 h-9 Z
+                          M13,26 h9 v9 h-9 Z
+                          M26,26 h9 v9 h-9 Z" />
+</vector>

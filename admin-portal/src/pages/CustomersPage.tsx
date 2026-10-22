@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { customersApi, categoriesApi } from '../api';
-import { Users, Plus, Edit, CheckCircle, Loader2 } from 'lucide-react';
+import { customersApi, appsApi } from '../api';
+import { Users, Plus, Edit, CheckCircle, Loader2, Download, FileSpreadsheet } from 'lucide-react';
+import { exportToExcel } from '../utils/exportExcel';
 
 interface Customer {
   id: string;
@@ -8,27 +9,30 @@ interface Customer {
   code: string;
   contactEmail: string;
   _count: { terminals: number };
-  entitlements: { category: { id: string; name: string; iconName: string } }[];
+  entitlements: { app: { id: string; name: string; iconUrl: string } }[];
 }
 
-interface Category { id: string; name: string; }
+interface App { id: string; name: string; }
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Customer | null>(null);
-  const [selectedCats, setSelectedCats] = useState<string[]>([]);
+  const [selectedApps, setSelectedApps] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', code: '', contactEmail: '' });
+  const [downloadsModalCustomer, setDownloadsModalCustomer] = useState<Customer | null>(null);
+  const [customerDownloads, setCustomerDownloads] = useState<any[]>([]);
+  const [loadingDownloads, setLoadingDownloads] = useState(false);
 
   const load = () => {
     setLoading(true);
-    Promise.all([customersApi.list(), categoriesApi.list()])
-      .then(([cRes, catRes]) => {
+    Promise.all([customersApi.list(), appsApi.list()])
+      .then(([cRes, appsRes]) => {
         setCustomers(cRes.data.customers);
-        setCategories(catRes.data.categories);
+        setApps(appsRes.data.apps);
       }).finally(() => setLoading(false));
   };
 
@@ -36,14 +40,14 @@ export default function CustomersPage() {
 
   const openEdit = (c: Customer) => {
     setEditing(c);
-    setSelectedCats(c.entitlements.map(e => e.category.id));
+    setSelectedApps(c.entitlements.map(e => e.app.id));
   };
 
   const saveEntitlements = async () => {
     if (!editing) return;
     setSaving(true);
     try {
-      await customersApi.updateEntitlements(editing.id, selectedCats);
+      await customersApi.updateEntitlements(editing.id, selectedApps);
       load();
       setEditing(null);
     } finally {
@@ -59,6 +63,30 @@ export default function CustomersPage() {
     load();
   };
 
+  const showDownloads = async (c: Customer) => {
+    setDownloadsModalCustomer(c);
+    setLoadingDownloads(true);
+    try {
+      const res = await customersApi.getDownloads(c.id);
+      setCustomerDownloads(res.data.downloads);
+    } catch (e) {
+      alert('Failed to load downloads');
+    } finally {
+      setLoadingDownloads(false);
+    }
+  };
+
+  const exportExcel = () => {
+    const rows = customers.map(c => ({
+      'Name':          c.name,
+      'Code':          c.code,
+      'Contact Email': c.contactEmail || '',
+      'Terminals':     c._count.terminals,
+      'Entitled Apps': c.entitlements.map(e => e.app.name).join(', ') || 'None',
+    }));
+    exportToExcel(rows, 'customers', 'Customers');
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -66,9 +94,15 @@ export default function CustomersPage() {
           <h2 className="page-title">Customers</h2>
           <p className="page-subtitle">Manage customers and their app catalog entitlements</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          <Plus size={16} /> Add Customer
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn btn-secondary" onClick={exportExcel} disabled={loading || customers.length === 0}>
+            <FileSpreadsheet size={15} />
+            Export Excel
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            <Plus size={16} /> Add Customer
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -103,15 +137,20 @@ export default function CustomersPage() {
                   {c.entitlements.length === 0 ? (
                     <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No entitlements</span>
                   ) : c.entitlements.map(e => (
-                    <span key={e.category.id} className="badge badge-success">
-                      <CheckCircle size={11} /> {e.category.name}
+                    <span key={e.app.id} className="badge badge-success">
+                      <CheckCircle size={11} /> {e.app.name}
                     </span>
                   ))}
                 </div>
 
-                <button className="btn btn-secondary btn-sm" onClick={() => openEdit(c)}>
-                  <Edit size={13} /> Manage
-                </button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => showDownloads(c)} title="Download History">
+                    <Download size={13} /> History
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => openEdit(c)}>
+                    <Edit size={13} /> Manage
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -127,14 +166,14 @@ export default function CustomersPage() {
               <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setEditing(null)}>✕</button>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '20px' }}>
-              Select the app categories this customer's terminals can access.
+              Select the individual apps this customer's terminals can access.
             </p>
             <div style={{ display: 'grid', gap: '10px' }}>
-              {categories.map(cat => {
-                const checked = selectedCats.includes(cat.id);
+              {apps.map(app => {
+                const checked = selectedApps.includes(app.id);
                 return (
                   <label
-                    key={cat.id}
+                    key={app.id}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '12px',
                       padding: '14px 16px', borderRadius: 'var(--radius-sm)',
@@ -147,12 +186,12 @@ export default function CustomersPage() {
                       type="checkbox"
                       checked={checked}
                       onChange={e => {
-                        if (e.target.checked) setSelectedCats(s => [...s, cat.id]);
-                        else setSelectedCats(s => s.filter(id => id !== cat.id));
+                        if (e.target.checked) setSelectedApps(s => [...s, app.id]);
+                        else setSelectedApps(s => s.filter(id => id !== app.id));
                       }}
                       style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }}
                     />
-                    <span style={{ fontWeight: checked ? 600 : 400, fontSize: '14px' }}>{cat.name}</span>
+                    <span style={{ fontWeight: checked ? 600 : 400, fontSize: '14px' }}>{app.name}</span>
                     {checked && <CheckCircle size={16} color="var(--brand-primary)" style={{ marginLeft: 'auto' }} />}
                   </label>
                 );
@@ -200,6 +239,60 @@ export default function CustomersPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Downloads Modal */}
+      {downloadsModalCustomer && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setDownloadsModalCustomer(null)}>
+          <div className="modal" style={{ width: '800px' }}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">Download History</h3>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>{downloadsModalCustomer.name}</div>
+              </div>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setDownloadsModalCustomer(null)}>✕</button>
+            </div>
+            
+            {loadingDownloads ? (
+              <div style={{ padding: '40px', textAlign: 'center' }}><Loader2 size={24} className="spinner" /></div>
+            ) : (
+              <div className="table-wrapper" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                <table>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                    <tr>
+                      <th>Date / Time</th>
+                      <th>Terminal ID</th>
+                      <th>App</th>
+                      <th>Version</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerDownloads.map(d => (
+                      <tr key={d.id}>
+                        <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{new Date(d.timestamp).toLocaleString()}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>{d.terminal.terminalId}</td>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className="app-icon" style={{ width: '24px', height: '24px', fontSize: '10px', borderRadius: '4px' }}>
+                              {d.app.name.charAt(0)}
+                            </div>
+                            {d.app.name}
+                          </div>
+                        </td>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '12px' }}>v{d.app.version}</td>
+                      </tr>
+                    ))}
+                    {customerDownloads.length === 0 && (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>No apps downloaded by this customer yet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
