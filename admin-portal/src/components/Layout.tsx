@@ -1,5 +1,6 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import logoMark from '../assets/logo-mark.png';
 import {
   LayoutDashboard, Package, Tag, Users, Monitor,
   Map, Download, LogOut, Search, Bell
@@ -28,7 +29,9 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">🏪</div>
+          <div className="sidebar-logo-icon">
+            <img src={logoMark} alt="WL Playstore" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          </div>
           <div>
             <div className="sidebar-logo-text">WL Playstore</div>
             <div className="sidebar-logo-sub">Worldline Enterprise</div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { Lock, Mail, Eye, EyeOff, Loader2 } from 'lucide-react';
+import logoMark from '../assets/logo-mark.png';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@worldline.com');
@@ -65,16 +66,16 @@ export default function LoginPage() {
           <div style={{
             width: '64px',
             height: '64px',
-            background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-accent))',
+            background: '#ffffff',
             borderRadius: '18px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '28px',
             margin: '0 auto 16px',
             boxShadow: '0 8px 24px rgba(1,135,95,0.3)',
+            padding: '8px',
           }}>
-            🏪
+            <img src={logoMark} alt="WL Playstore" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
             WL Playstore

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WL Playstore launcher icon background — dark green -->
+<!-- WL BizStore launcher icon background — white, to match the new logo mark -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="#01875F" />
+    <solid android:color="#FFFFFF" />
 </shape>
