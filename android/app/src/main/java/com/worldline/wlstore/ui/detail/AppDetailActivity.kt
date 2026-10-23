@@ -1,9 +1,13 @@
 package com.worldline.wlstore.ui.detail
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
@@ -11,6 +15,9 @@ import com.worldline.wlstore.data.model.AppInfo
 import com.worldline.wlstore.service.InstallManager
 import com.worldline.wlstore.service.TelemetryService
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.resume
 
 /**
  * App detail screen — shown when user taps an app in the catalog grid.
@@ -37,6 +44,28 @@ class AppDetailActivity : AppCompatActivity() {
 
     private var app: AppInfo? = null
     private var isInstalling = false
+
+    // Device Owner-managed terminals have this permission pre-granted silently.
+    // On a normally side-loaded install (e.g. ad-hoc testing), this triggers the
+    // standard runtime permission dialog so GPS telemetry still works.
+    private var permissionContinuation: Continuation<Boolean>? = null
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        permissionContinuation?.resume(granted)
+        permissionContinuation = null
+    }
+
+    private suspend fun ensureLocationPermission(): Boolean {
+        val granted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) return true
+        return suspendCancellableCoroutine { cont ->
+            permissionContinuation = cont
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,6 +130,7 @@ class AppDetailActivity : AppCompatActivity() {
 
                 // Step 2: Report DOWNLOADING event with GPS
                 updateStatus("Capturing location...")
+                ensureLocationPermission()
                 TelemetryService.reportDownloadEvent(
                     context = this@AppDetailActivity,
                     eventId = dlData.eventId,
