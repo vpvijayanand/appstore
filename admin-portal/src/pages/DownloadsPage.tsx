@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import { analyticsApi, customersApi, appsApi } from '../api';
 import { format } from 'date-fns';
 import { Download, RefreshCw, Loader2, MapPin, X, FileSpreadsheet } from 'lucide-react';
 import { exportToExcel } from '../utils/exportExcel';
+
+const STATUS_COLORS: Record<string, string> = {
+  SUCCESS: '#34c785',
+  FAILED: '#ea4335',
+  PENDING: '#4285f4',
+  DOWNLOADING: '#fbbc04',
+};
 
 interface DownloadEvent {
   id: string;
@@ -50,6 +58,7 @@ export default function DownloadsPage() {
 
   const hasFilters = status !== '' || customerId !== '' || appId !== '';
   const [exporting, setExporting] = useState(false);
+  const [locationEvent, setLocationEvent] = useState<DownloadEvent | null>(null);
 
   const exportExcel = async () => {
     setExporting(true);
@@ -274,10 +283,15 @@ export default function DownloadsPage() {
                       </td>
                       <td>
                         {ev.latitude != null && ev.longitude != null ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--brand-accent)', fontSize: '12px' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setLocationEvent(ev)}
+                            title="View on map"
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', padding: '4px 8px' }}
+                          >
                             <MapPin size={12} />
                             {parseFloat(String(ev.latitude)).toFixed(3)}, {parseFloat(String(ev.longitude)).toFixed(3)}
-                          </div>
+                          </button>
                         ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
                       </td>
                       <td>
@@ -320,6 +334,61 @@ export default function DownloadsPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* View Location modal */}
+      {locationEvent && locationEvent.latitude != null && locationEvent.longitude != null && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setLocationEvent(null)}>
+          <div className="modal" style={{ width: '620px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">
+                <MapPin size={16} style={{ marginRight: '6px', verticalAlign: '-2px' }} />
+                Download Location — {locationEvent.terminal.terminalId}
+              </h3>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setLocationEvent(null)}>✕</button>
+            </div>
+            <div style={{ padding: '0 0 16px 0' }}>
+              <div className="card" style={{ padding: 0, overflow: 'hidden', height: '360px', margin: '0 16px 12px 16px', width: 'calc(100% - 32px)' }}>
+                <MapContainer
+                  key={locationEvent.id}
+                  center={[parseFloat(String(locationEvent.latitude)), parseFloat(String(locationEvent.longitude))]}
+                  zoom={14}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    attribution='&copy; OpenStreetMap contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <CircleMarker
+                    center={[parseFloat(String(locationEvent.latitude)), parseFloat(String(locationEvent.longitude))]}
+                    radius={10}
+                    pathOptions={{
+                      color: STATUS_COLORS[locationEvent.installStatus] || '#888',
+                      fillColor: STATUS_COLORS[locationEvent.installStatus] || '#888',
+                      fillOpacity: 0.8,
+                      weight: 2,
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ fontSize: '13px', minWidth: '180px' }}>
+                        <div style={{ fontWeight: 700, marginBottom: '6px' }}>{locationEvent.terminal.terminalId}</div>
+                        <div>{locationEvent.app.name} · v{locationEvent.version}</div>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                </MapContainer>
+              </div>
+              <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: '13px' }}>
+                <div><span style={{ color: 'var(--text-muted)' }}>Customer:</span> {locationEvent.terminal.customer.name}</div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Site:</span> {locationEvent.terminal.site || '—'}</div>
+                <div><span style={{ color: 'var(--text-muted)' }}>App:</span> {locationEvent.app.name}</div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Status:</span> {locationEvent.installStatus}</div>
+                <div><span style={{ color: 'var(--text-muted)' }}>Time:</span> {format(new Date(locationEvent.timestamp), 'dd MMM yyyy HH:mm')}</div>
+                <div><span style={{ color: 'var(--text-muted)' }}>GPS:</span> {parseFloat(String(locationEvent.latitude)).toFixed(6)}, {parseFloat(String(locationEvent.longitude)).toFixed(6)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
