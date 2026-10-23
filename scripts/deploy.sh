@@ -5,7 +5,7 @@
 set -e
 
 DOMAIN=${1:-"wlstore.example.com"}
-echo "🚀 Deploying WL Playstore to $DOMAIN..."
+echo "🚀 Deploying WL BizStore to $DOMAIN..."
 
 # ── 1. Install Docker + Compose ───────────────────────────────────────────────
 if ! command -v docker &> /dev/null; then

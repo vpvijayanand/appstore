@@ -22,7 +22,7 @@ export default function Layout() {
 
   const pageTitle = navItems.find(n =>
     n.path === '/' ? location.pathname === '/' : location.pathname.startsWith(n.path)
-  )?.label || 'WL Playstore';
+  )?.label || 'WL BizStore';
 
   return (
     <div className="app-layout">
@@ -30,11 +30,11 @@ export default function Layout() {
       <aside className="sidebar">
         <div className="sidebar-logo">
           <div className="sidebar-logo-icon">
-            <img src={logoMark} alt="WL Playstore" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img src={logoMark} alt="WL BizStore" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <div>
-            <div className="sidebar-logo-text">WL Playstore</div>
-            <div className="sidebar-logo-sub">Worldline Enterprise</div>
+            <div className="sidebar-logo-text">WL BizStore</div>
+            <div className="sidebar-logo-sub">Empowering Your Point of Sale</div>
           </div>
         </div>
 

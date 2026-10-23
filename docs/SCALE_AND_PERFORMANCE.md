@@ -1,4 +1,4 @@
-# WL Playstore — Enterprise Scalability & High-Concurrency Architecture
+# WL BizStore — Enterprise Scalability & High-Concurrency Architecture
 
 > **Target Capacity:** 100,000+ to 1,000,000+ Concurrent Payment Terminals (Lakhs of POS Devices)  
 > **Key Metric:** Millions of daily APK downloads with sub-100ms API response time  
@@ -6,7 +6,7 @@
 
 ---
 
-## Executive Summary: Is WL Playstore Ready for Lakhs of Terminals?
+## Executive Summary: Is WL BizStore Ready for Lakhs of Terminals?
 
 **YES — the core architectural model is built for massive scale because of ONE fundamental architectural design choice:**
 

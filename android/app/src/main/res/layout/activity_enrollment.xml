@@ -18,7 +18,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="WL App Store"
+        android:text="WL BizStore"
         android:textSize="24sp"
         android:textStyle="bold"
         android:textColor="#E8EAED"
@@ -27,7 +27,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Enterprise App Distribution"
+        android:text="Empowering Your Point of Sale"
         android:textSize="13sp"
         android:textColor="#9AA0AD"
         android:layout_marginBottom="40dp" />

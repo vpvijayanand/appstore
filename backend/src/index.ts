@@ -51,7 +51,7 @@ app.use(morgan('dev'));
 
 // ── Health ────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'WL Playstore API', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', service: 'WL BizStore API', timestamp: new Date().toISOString() });
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ initMinIO()
   })
   .finally(() => {
     app.listen(PORT, () => {
-      console.log(`🚀 WL Playstore API running on port ${PORT}`);
+      console.log(`🚀 WL BizStore API running on port ${PORT}`);
       console.log(`   Health: http://localhost:${PORT}/health`);
     });
   });

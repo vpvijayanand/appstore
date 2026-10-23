@@ -31,7 +31,7 @@ class CatalogActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progress_bar)
         tvEmpty = findViewById(R.id.tv_empty)
 
-        supportActionBar?.title = "WL App Store"
+        supportActionBar?.title = "WL BizStore"
 
         loadCatalog()
     }

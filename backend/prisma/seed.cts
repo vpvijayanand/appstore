@@ -27,7 +27,7 @@ const CITIES = [
 ];
 
 async function main() {
-  console.log('🌱 Seeding WL Playstore database...');
+  console.log('🌱 Seeding WL BizStore database...');
 
   // ── Admin User ────────────────────────────────────────────────────────────
   const adminPassword = await bcrypt.hash('Admin@123456', 12);

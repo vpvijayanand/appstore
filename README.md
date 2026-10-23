@@ -1,4 +1,4 @@
-# 🏪 WL Playstore — Private Enterprise App Store
+# 🏪 WL BizStore — Empowering Your Point of Sale
 
 > Worldline Global Services India · Private Android App Distribution Platform
 > Authored by Vijayanand · Architecture v1.0 August 2026

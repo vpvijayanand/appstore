@@ -1,4 +1,4 @@
-# WL Playstore — Security Architecture Document
+# WL BizStore — Security Architecture Document
 
 > **Classification:** Internal — Engineering & Security Review  
 > **Last Updated:** September 2026  
@@ -8,9 +8,9 @@
 
 ## Overview
 
-WL Playstore is an **enterprise-grade managed app distribution platform** for Worldline payment terminals. Unlike a public app store, all devices are company-managed (Android Enterprise / Device Owner mode), which enables a stricter, hardware-bound security model. The table below maps WL Playstore controls against equivalent Google Play Store protections.
+WL BizStore is an **enterprise-grade managed app distribution platform** for Worldline payment terminals. Unlike a public app store, all devices are company-managed (Android Enterprise / Device Owner mode), which enables a stricter, hardware-bound security model. The table below maps WL BizStore controls against equivalent Google Play Store protections.
 
-| Security Domain | Google Play Store | WL Playstore |
+| Security Domain | Google Play Store | WL BizStore |
 |---|---|---|
 | User Auth | Google Account + 2FA | JWT + bcrypt + Refresh Tokens |
 | Device Auth | Google Play Services | Per-device API Key (cryptographic) |
@@ -401,7 +401,7 @@ The following controls are **not yet implemented** and should be added before pr
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    WL PLAYSTORE SECURITY LAYERS                     │
+│                     WL BIZSTORE SECURITY LAYERS                     │
 ├─────────────────┬───────────────────────────────────────────────────┤
 │  NETWORK        │  HTTPS-only · helmet headers · CORS allowlist      │
 │  TRANSPORT      │  Network Security Config (Android) · CSP           │
@@ -428,4 +428,4 @@ The following controls are **not yet implemented** and should be added before pr
 
 ---
 
-*Document generated from source code analysis of WL Playstore v1.0 (September 2026). Keep this document updated whenever security-relevant code changes are made.*
+*Document generated from source code analysis of WL BizStore v1.0 (September 2026). Keep this document updated whenever security-relevant code changes are made.*

@@ -75,13 +75,13 @@ export default function LoginPage() {
             boxShadow: '0 8px 24px rgba(1,135,95,0.3)',
             padding: '8px',
           }}>
-            <img src={logoMark} alt="WL Playstore" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img src={logoMark} alt="WL BizStore" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-            WL Playstore
+            WL BizStore
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13.5px' }}>
-            Worldline Enterprise App Store — Admin Portal
+            Empowering Your Point of Sale
           </p>
         </div>
 
