@@ -49,7 +49,7 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
 });
 
 const createSchema = z.object({
-  tid: z.string().min(3),
+  tid: z.string().min(3).optional().or(z.literal('')),
   serialNo: z.string().min(1),
   customerId: z.string().min(1),
   model: z.string().optional(),
@@ -74,7 +74,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
     const master = await prisma.terminalMaster.create({
       data: {
-        tid: data.tid,
+        tid: data.tid ? data.tid : null,
         serialNo: data.serialNo,
         customerId: customer.id,
         model: data.model,
@@ -99,7 +99,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
 
 // ── Bulk Import (rows pre-parsed from CSV/XLSX on the client) ────────────────
 const bulkRowSchema = z.object({
-  tid: z.string().min(3),
+  tid: z.string().min(3).optional().or(z.literal('')),
   serialNo: z.string().min(1),
   customerCode: z.string().min(1),
   model: z.string().optional(),
@@ -128,13 +128,13 @@ router.post('/bulk-import', requireAdmin, async (req: Request, res: Response) =>
     const row = rows[i];
     const customerId = customerByCode.get(row.customerCode.toUpperCase());
     if (!customerId) {
-      results.push({ row: i + 1, tid: row.tid, status: 'skipped', reason: `Unknown customer code "${row.customerCode}"` });
+      results.push({ row: i + 1, tid: row.tid || '(none)', status: 'skipped', reason: `Unknown customer code "${row.customerCode}"` });
       continue;
     }
     try {
       await prisma.terminalMaster.create({
         data: {
-          tid: row.tid,
+          tid: row.tid ? row.tid : null,
           serialNo: row.serialNo,
           customerId,
           model: row.model,
@@ -144,9 +144,9 @@ router.post('/bulk-import', requireAdmin, async (req: Request, res: Response) =>
         },
       });
       created++;
-      results.push({ row: i + 1, tid: row.tid, status: 'created' });
+      results.push({ row: i + 1, tid: row.tid || '(none)', status: 'created' });
     } catch (e: any) {
-      results.push({ row: i + 1, tid: row.tid, status: 'skipped', reason: e?.code === 'P2002' ? 'Duplicate TID or Serial No' : 'Insert failed' });
+      results.push({ row: i + 1, tid: row.tid || '(none)', status: 'skipped', reason: e?.code === 'P2002' ? 'Duplicate TID or Serial No' : 'Insert failed' });
     }
   }
 
@@ -159,6 +159,7 @@ router.post('/bulk-import', requireAdmin, async (req: Request, res: Response) =>
 
 router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
   const schema = z.object({
+    tid: z.string().min(3).optional(),
     customerId: z.string().optional(),
     model: z.string().optional(),
     branchCode: z.string().optional(),
@@ -184,6 +185,7 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
     return res.json({ terminalMaster: master });
   } catch (e) {
     if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
+    if ((e as any)?.code === 'P2002') return res.status(409).json({ error: 'TID already registered to another device' });
     return res.status(500).json({ error: 'Update failed' });
   }
 });

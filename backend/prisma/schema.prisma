@@ -56,7 +56,7 @@ model Customer {
 // master rather than trusting whatever the device claims at enroll time.
 model TerminalMaster {
   id          String   @id @default(uuid())
-  tid         String   @unique @map("tid")
+  tid         String?  @unique @map("tid")
   serialNo    String   @unique @map("serial_no")
   customerId  String   @map("customer_id")
   customer    Customer @relation(fields: [customerId], references: [id])

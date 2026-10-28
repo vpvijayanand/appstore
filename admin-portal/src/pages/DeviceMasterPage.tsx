@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { terminalMastersApi, customersApi } from '../api';
 import {
   HardDrive, Plus, Trash2, Loader2, FileSpreadsheet, UploadCloud,
-  CheckCircle, XCircle, Search,
+  CheckCircle, XCircle, Search, Link2,
 } from 'lucide-react';
 import { exportToExcel } from '../utils/exportExcel';
 
@@ -10,7 +10,7 @@ interface Customer { id: string; name: string; code: string; }
 
 interface TerminalMaster {
   id: string;
-  tid: string;
+  tid: string | null;
   serialNo: string;
   model: string | null;
   branchCode: string | null;
@@ -30,9 +30,11 @@ export default function DeviceMasterPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ tid: '', serialNo: '', customerId: '', model: '', branchCode: '', site: '' });
-  const [bulkText, setBulkText] = useState('TID,SerialNo,CustomerCode,Model,BranchCode,Site\nTID-1001,SN-1001,RETAIL_A,PAX A920,BR001,Mumbai HQ');
+  const [form, setForm] = useState({ serialNo: '', tid: '', customerId: '', model: '', branchCode: '', site: '' });
+  const [bulkText, setBulkText] = useState('SerialNo,TID,CustomerCode,Model,BranchCode,Site\nSN-1001,TID-1001,RETAIL_A,PAX A920,BR001,Mumbai HQ');
   const [bulkResult, setBulkResult] = useState<any>(null);
+  const [mapTidFor, setMapTidFor] = useState<TerminalMaster | null>(null);
+  const [mapTidValue, setMapTidValue] = useState('');
 
   const load = () => {
     setLoading(true);
@@ -52,7 +54,7 @@ export default function DeviceMasterPage() {
     try {
       await terminalMastersApi.create(form);
       setShowCreate(false);
-      setForm({ tid: '', serialNo: '', customerId: '', model: '', branchCode: '', site: '' });
+      setForm({ serialNo: '', tid: '', customerId: '', model: '', branchCode: '', site: '' });
       load();
     } catch (e: any) {
       alert(e.response?.data?.error || 'Create failed');
@@ -92,7 +94,7 @@ export default function DeviceMasterPage() {
   };
 
   const deleteMaster = async (m: TerminalMaster) => {
-    if (!confirm(`Delete device master "${m.tid}"?`)) return;
+    if (!confirm(`Delete device master "${m.serialNo}"?`)) return;
     try {
       await terminalMastersApi.delete(m.id);
       load();
@@ -101,10 +103,31 @@ export default function DeviceMasterPage() {
     }
   };
 
+  const openMapTid = (m: TerminalMaster) => {
+    setMapTidFor(m);
+    setMapTidValue(m.tid || '');
+  };
+
+  const saveMapTid = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mapTidFor) return;
+    setSaving(true);
+    try {
+      await terminalMastersApi.update(mapTidFor.id, { tid: mapTidValue });
+      setMapTidFor(null);
+      setMapTidValue('');
+      load();
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Mapping failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const exportExcel = () => {
     const rows = masters.map(m => ({
-      'TID': m.tid,
       'Serial No': m.serialNo,
+      'TID': m.tid || '',
       'Customer': m.customer.name,
       'Customer Code': m.customer.code,
       'Model': m.model || '',
@@ -160,8 +183,8 @@ export default function DeviceMasterPage() {
           <table>
             <thead>
               <tr>
-                <th>TID</th>
                 <th>Serial No</th>
+                <th>TID</th>
                 <th>Customer</th>
                 <th>Model</th>
                 <th>Site / Branch</th>
@@ -174,8 +197,14 @@ export default function DeviceMasterPage() {
             <tbody>
               {masters.map(m => (
                 <tr key={m.id}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{m.tid}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>{m.serialNo}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{m.serialNo}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    {m.tid || (
+                      <button className="btn btn-secondary btn-sm" onClick={() => openMapTid(m)} style={{ fontSize: '11px' }}>
+                        <Link2 size={12} /> Map TID
+                      </button>
+                    )}
+                  </td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{m.customer.name}</div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{m.customer.code}</div>
@@ -196,9 +225,16 @@ export default function DeviceMasterPage() {
                   </td>
                   <td>{m._count.assignments}</td>
                   <td>
-                    <button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteMaster(m)} title="Delete">
-                      <Trash2 size={13} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      {m.tid && (
+                        <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openMapTid(m)} title="Edit TID mapping">
+                          <Link2 size={13} />
+                        </button>
+                      )}
+                      <button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteMaster(m)} title="Delete">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -226,12 +262,12 @@ export default function DeviceMasterPage() {
             <form onSubmit={createMaster} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div className="content-grid grid-2" style={{ gap: '12px' }}>
                 <div className="form-group">
-                  <label className="form-label">TID *</label>
-                  <input className="form-input" value={form.tid} onChange={e => setForm(f => ({ ...f, tid: e.target.value }))} required />
-                </div>
-                <div className="form-group">
                   <label className="form-label">Serial No *</label>
                   <input className="form-input" value={form.serialNo} onChange={e => setForm(f => ({ ...f, serialNo: e.target.value }))} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">TID <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — map later)</span></label>
+                  <input className="form-input" value={form.tid} onChange={e => setForm(f => ({ ...f, tid: e.target.value }))} placeholder="Leave blank if not yet known" />
                 </div>
               </div>
               <div className="form-group">
@@ -276,7 +312,7 @@ export default function DeviceMasterPage() {
               <button className="btn btn-secondary btn-sm btn-icon" onClick={() => { setShowBulk(false); setBulkResult(null); }}>✕</button>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '12px' }}>
-              Paste CSV rows (header required): <code style={{ fontFamily: 'var(--font-mono)' }}>TID,SerialNo,CustomerCode,Model,BranchCode,Site</code>
+              Paste CSV rows (header required): <code style={{ fontFamily: 'var(--font-mono)' }}>SerialNo,TID,CustomerCode,Model,BranchCode,Site</code> — TID may be left blank and mapped later.
             </p>
             <textarea
               className="form-input"
@@ -303,6 +339,42 @@ export default function DeviceMasterPage() {
                 Import
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Map TID Modal */}
+      {mapTidFor && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setMapTidFor(null)}>
+          <div className="modal" style={{ width: '420px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Map TID</h3>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setMapTidFor(null)}>✕</button>
+            </div>
+            <form onSubmit={saveMapTid} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="form-group">
+                <label className="form-label">Serial No</label>
+                <input className="form-input" value={mapTidFor.serialNo} disabled />
+              </div>
+              <div className="form-group">
+                <label className="form-label">TID *</label>
+                <input
+                  className="form-input"
+                  value={mapTidValue}
+                  onChange={e => setMapTidValue(e.target.value)}
+                  placeholder="Scan or enter the device TID"
+                  autoFocus
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setMapTidFor(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? <Loader2 size={14} className="spinner" /> : <Link2 size={14} />}
+                  Save Mapping
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
