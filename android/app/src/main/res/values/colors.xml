@@ -2,6 +2,7 @@
 <resources>
     <color name="wl_green">#01875F</color>
     <color name="wl_green_dark">#016B4D</color>
+    <color name="wl_amber">#F9AB00</color>
     <color name="wl_background">#0F1117</color>
     <color name="wl_surface">#1A1D27</color>
     <color name="wl_text_primary">#E8EAED</color>

@@ -22,6 +22,7 @@ class AppGridAdapter(
         val name: TextView = view.findViewById(R.id.tv_app_name)
         val developer: TextView = view.findViewById(R.id.tv_app_developer)
         val badge: TextView = view.findViewById(R.id.tv_installed_badge)
+        val statusChip: TextView = view.findViewById(R.id.tv_status_chip)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -47,15 +48,25 @@ class AppGridAdapter(
                 holder.badge.visibility = View.VISIBLE
                 holder.badge.text = "✓"
                 holder.badge.background = ContextCompat.getDrawable(context, R.drawable.bg_badge_pill)
+                holder.badge.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(context, R.color.wl_green))
+
+                holder.statusChip.visibility = View.VISIBLE
+                holder.statusChip.text = "✓ Installed"
+                holder.statusChip.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(context, R.color.wl_green))
             }
             InstalledAppsHelper.InstallState.UPDATE_AVAILABLE -> {
                 holder.badge.visibility = View.VISIBLE
                 holder.badge.text = "↑"
                 holder.badge.background = ContextCompat.getDrawable(context, R.drawable.bg_badge_pill)
-                holder.badge.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFF9AB00.toInt())
+                holder.badge.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(context, R.color.wl_amber))
+
+                holder.statusChip.visibility = View.VISIBLE
+                holder.statusChip.text = "↑ Update"
+                holder.statusChip.backgroundTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(context, R.color.wl_amber))
             }
             InstalledAppsHelper.InstallState.NOT_INSTALLED -> {
                 holder.badge.visibility = View.GONE
+                holder.statusChip.visibility = View.GONE
             }
         }
 
@@ -64,4 +75,5 @@ class AppGridAdapter(
 
     override fun getItemCount() = apps.size
 }
+
 

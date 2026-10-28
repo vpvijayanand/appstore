@@ -128,6 +128,7 @@ class EnrollmentActivity : AppCompatActivity() {
 
     private fun navigateToCatalog() {
         startActivity(Intent(this, CatalogActivity::class.java))
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         finish()
     }
 
@@ -148,6 +149,7 @@ class EnrollmentActivity : AppCompatActivity() {
                         val intent = Intent(this@EnrollmentActivity, DefaultAppsSetupActivity::class.java)
                         intent.putParcelableArrayListExtra(DefaultAppsSetupActivity.EXTRA_APPS, ArrayList(apps))
                         startActivity(intent)
+                        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
                         finish()
                         return@launch
                     }

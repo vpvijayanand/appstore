@@ -76,9 +76,21 @@ class AppDetailActivity : AppCompatActivity() {
         app = intent.getParcelableExtra(EXTRA_APP)
         if (app == null) { finish(); return }
 
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
         bindViews()
         populateUi()
         setupInstallButton()
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        onBackPressedDispatcher.onBackPressed()
+        return true
+    }
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 
     override fun onResume() {

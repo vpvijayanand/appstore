@@ -143,6 +143,7 @@ class DefaultAppsSetupActivity : AppCompatActivity() {
 
     private fun goToCatalog() {
         startActivity(Intent(this, CatalogActivity::class.java))
+        overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         finish()
     }
 

@@ -5,11 +5,13 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AnimationUtils
 import android.widget.*
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AppInfo
 import com.worldline.wlstore.ui.detail.AppDetailActivity
@@ -39,10 +41,14 @@ class CatalogCategoryFragment : Fragment() {
                 val intent = Intent(requireContext(), AppDetailActivity::class.java)
                 intent.putExtra(AppDetailActivity.EXTRA_APP, app)
                 startActivity(intent)
+                requireActivity().overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
             }
+            layoutAnimation = AnimationUtils.loadLayoutAnimation(requireContext(), R.anim.layout_animation_grid)
         }
+        recycler.scheduleLayoutAnimation()
         return recycler
     }
+
 
     companion object {
         private const val ARG_CATEGORY_ID = "categoryId"

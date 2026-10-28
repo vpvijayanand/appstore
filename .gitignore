@@ -86,3 +86,7 @@ android/**/*.apk
 android/**/*.aab
 android/**/*.keystore
 android/**/*.jks
+payterminal-demo/.gradle/
+payterminal-demo/local.properties
+payterminal-demo/app/build/
+payterminal-demo/build/
