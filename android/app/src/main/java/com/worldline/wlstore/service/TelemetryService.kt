@@ -11,6 +11,7 @@ import com.worldline.wlstore.data.model.DownloadEventRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
@@ -31,31 +32,38 @@ object TelemetryService {
     /**
      * Gets a single GPS fix using FusedLocationProviderClient.
      * Falls back to network location if GPS signal is weak (common for indoor POS).
+     *
+     * Bounded to 8s and resilient to ANY failure (missing permission, Play
+     * Services unavailable/outdated on an emulator, no location fix available,
+     * etc.) so a GPS problem never blocks network-type/status reporting below.
      */
     suspend fun getCurrentLocation(context: Context): GpsResult {
-        return suspendCancellableCoroutine { cont ->
-            try {
-                val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-                val cts = CancellationTokenSource()
+        return withTimeoutOrNull(8_000) {
+            suspendCancellableCoroutine { cont ->
+                try {
+                    val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                    val cts = CancellationTokenSource()
 
-                cont.invokeOnCancellation { cts.cancel() }
+                    cont.invokeOnCancellation { cts.cancel() }
 
-                fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
-                    .addOnSuccessListener { location ->
-                        if (location != null) {
-                            cont.resume(GpsResult(location.latitude, location.longitude, location.accuracy))
-                        } else {
+                    fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
+                        .addOnSuccessListener { location ->
+                            if (location != null) {
+                                cont.resume(GpsResult(location.latitude, location.longitude, location.accuracy))
+                            } else {
+                                cont.resume(GpsResult(null, null, null))
+                            }
+                        }
+                        .addOnFailureListener {
                             cont.resume(GpsResult(null, null, null))
                         }
-                    }
-                    .addOnFailureListener {
-                        cont.resume(GpsResult(null, null, null))
-                    }
-            } catch (e: SecurityException) {
-                // Location permission not granted (should be pre-granted by Device Owner)
-                cont.resume(GpsResult(null, null, null))
+                } catch (e: Exception) {
+                    // Permission not granted, Play Services unavailable/outdated, or any
+                    // other GMS failure — never let this block telemetry reporting.
+                    cont.resume(GpsResult(null, null, null))
+                }
             }
-        }
+        } ?: GpsResult(null, null, null)
     }
 
     /**
@@ -84,7 +92,11 @@ object TelemetryService {
         installStatus: String,
     ): Result<String> = withContext(Dispatchers.IO) {
         try {
-            val gps = getCurrentLocation(context)
+            val gps = try {
+                getCurrentLocation(context)
+            } catch (e: Exception) {
+                GpsResult(null, null, null)
+            }
             val networkType = getNetworkType(context)
 
             val request = DownloadEventRequest(
