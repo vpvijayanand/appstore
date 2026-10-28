@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, DeviceCommandType } from '@prisma/client';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth';
 import crypto from 'crypto';
@@ -70,6 +70,43 @@ router.patch('/:id/status', requireAdmin, async (req: Request, res: Response) =>
     if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
     return res.status(500).json({ error: 'Update failed' });
   }
+});
+
+// ── Remote Commands (e.g. force restart the Android app) ─────────────────────
+// Queue a command for a terminal; the device picks it up next time it polls
+// GET /api/terminal/commands/pending (see routes/device-commands.ts).
+const queueCommandSchema = z.object({
+  type: z.nativeEnum(DeviceCommandType),
+});
+
+router.post('/:id/commands', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { type } = queueCommandSchema.parse(req.body);
+    const terminal = await prisma.terminal.findUnique({ where: { id: req.params.id } });
+    if (!terminal) return res.status(404).json({ error: 'Terminal not found' });
+
+    const command = await prisma.deviceCommand.create({
+      data: { terminalId: terminal.id, type, createdById: req.admin!.adminId },
+    });
+    await prisma.adminAuditLog.create({
+      data: { adminId: req.admin!.adminId, action: 'QUEUE_DEVICE_COMMAND', entityType: 'Terminal', entityId: terminal.id, details: { type } },
+    });
+    return res.json({ command });
+  } catch (e) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
+    console.error(e);
+    return res.status(500).json({ error: 'Failed to queue command' });
+  }
+});
+
+// Recent command history + status for a terminal (admin view).
+router.get('/:id/commands', requireAdmin, async (req: Request, res: Response) => {
+  const commands = await prisma.deviceCommand.findMany({
+    where: { terminalId: req.params.id },
+    orderBy: { createdAt: 'desc' },
+    take: 20,
+  });
+  return res.json({ commands });
 });
 
 export default router;

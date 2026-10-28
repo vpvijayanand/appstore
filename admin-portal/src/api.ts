@@ -99,6 +99,9 @@ export const terminalsApi = {
   rotateKey: (id: string) => api.post(`/terminals/${id}/rotate-key`),
   updateStatus: (id: string, status: string) =>
     api.patch(`/terminals/${id}/status`, { status }),
+  sendCommand: (id: string, type: string) =>
+    api.post(`/terminals/${id}/commands`, { type }),
+  getCommands: (id: string) => api.get(`/terminals/${id}/commands`),
 };
 
 // ── Terminal Masters (Serial No / TID device provisioning) ────────────────────

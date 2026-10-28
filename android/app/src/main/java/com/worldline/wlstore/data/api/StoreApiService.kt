@@ -34,6 +34,13 @@ interface StoreApiService {
 
     @POST("auth/terminal/verify")
     suspend fun verifyTerminal(): Response<VerifyResponse>
+
+    // Remote commands (admin -> device), e.g. force restart
+    @GET("terminal/commands/pending")
+    suspend fun getPendingCommands(): Response<PendingCommandsResponse>
+
+    @POST("terminal/commands/{id}/complete")
+    suspend fun completeCommand(@Path("id") id: String, @Body body: CompleteCommandRequest): Response<Unit>
 }
 
 // ── Singleton Client ──────────────────────────────────────────────────────────
@@ -44,6 +51,33 @@ object ApiClient {
 
     fun setApiKey(key: String) {
         apiKey = key
+    }
+
+    fun hasApiKey(): Boolean = apiKey.isNotBlank()
+
+    /**
+     * Ensures [apiKey] is populated before making a request. Needed because this is an
+     * in-memory singleton: if the process was started fresh for a background task (e.g. a
+     * WorkManager worker) rather than through EnrollmentActivity, the key would otherwise
+     * still be blank even though the device is already enrolled. Reads the same
+     * EncryptedSharedPreferences entry that EnrollmentActivity writes on enrollment.
+     */
+    fun ensureApiKeyLoaded(context: android.content.Context) {
+        if (apiKey.isNotBlank()) return
+        try {
+            val masterKeyAlias = androidx.security.crypto.MasterKeys.getOrCreate(androidx.security.crypto.MasterKeys.AES256_GCM_SPEC)
+            val prefs = androidx.security.crypto.EncryptedSharedPreferences.create(
+                "wl_store_prefs",
+                masterKeyAlias,
+                context,
+                androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+            val storedKey = prefs.getString("api_key", null)
+            if (storedKey != null) apiKey = storedKey
+        } catch (e: Exception) {
+            // Keystore unavailable — leave apiKey blank, caller's request will simply 401.
+        }
     }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {

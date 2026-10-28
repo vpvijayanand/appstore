@@ -197,8 +197,42 @@ model Terminal {
   downloadEvents DownloadEvent[]
   terminalMasterId String?      @unique @map("terminal_master_id")
   terminalMaster TerminalMaster? @relation(fields: [terminalMasterId], references: [id])
+  deviceCommands DeviceCommand[]
 
   @@map("terminals")
+}
+
+// ─── Device Commands (remote control: admin → Android app) ──────────────────
+// An admin queues a command for a specific terminal; the Android app polls for
+// pending commands (GET /api/terminal/commands/pending), executes them, and
+// reports back. Kept generic so more command types can be added later without
+// another schema change.
+model DeviceCommand {
+  id             String              @id @default(uuid())
+  terminalId     String              @map("terminal_id")
+  terminal       Terminal            @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  type           DeviceCommandType
+  status         DeviceCommandStatus @default(PENDING)
+  payload        Json?
+  createdById    String?             @map("created_by_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  acknowledgedAt DateTime?           @map("acknowledged_at")
+  completedAt    DateTime?           @map("completed_at")
+  errorMessage   String?             @map("error_message")
+
+  @@index([terminalId, status])
+  @@map("device_commands")
+}
+
+enum DeviceCommandType {
+  RESTART_APP
+}
+
+enum DeviceCommandStatus {
+  PENDING
+  ACKNOWLEDGED
+  COMPLETED
+  FAILED
 }
 
 enum TerminalStatus {

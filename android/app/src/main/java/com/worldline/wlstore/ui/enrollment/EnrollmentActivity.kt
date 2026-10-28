@@ -13,6 +13,7 @@ import androidx.security.crypto.MasterKeys
 import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.EnrollmentRequest
+import com.worldline.wlstore.service.CommandPollWorker
 import com.worldline.wlstore.ui.catalog.CatalogActivity
 import com.worldline.wlstore.ui.setup.DefaultAppsSetupActivity
 import kotlinx.coroutines.launch
@@ -43,6 +44,7 @@ class EnrollmentActivity : AppCompatActivity() {
             val existingKey = prefs.getString(PREF_API_KEY, null)
             if (existingKey != null) {
                 ApiClient.setApiKey(existingKey)
+                CommandPollWorker.schedule(this)
                 navigateToCatalog()
                 return
             }
@@ -110,6 +112,7 @@ class EnrollmentActivity : AppCompatActivity() {
                     }
 
                     ApiClient.setApiKey(data.apiKey)
+                    CommandPollWorker.schedule(this@EnrollmentActivity)
                     tvStatus.text = "✅ Enrolled! Launching store..."
                     navigateAfterEnrollment()
                 } else {

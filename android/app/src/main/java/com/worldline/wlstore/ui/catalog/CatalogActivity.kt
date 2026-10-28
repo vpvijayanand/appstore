@@ -17,6 +17,7 @@ import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AppInfo
 import com.worldline.wlstore.data.model.CategoryWithApps
 import com.worldline.wlstore.service.InstalledAppsHelper
+import com.worldline.wlstore.service.RemoteCommandExecutor
 import com.worldline.wlstore.ui.setup.DefaultAppsSetupActivity
 import kotlinx.coroutines.launch
 
@@ -67,6 +68,10 @@ class CatalogActivity : AppCompatActivity() {
             applyFilterAndRender()
             checkPendingDefaultApps()
         }
+        // Check for remote commands (e.g. force restart) immediately while the
+        // app is actively being used, rather than waiting for the next
+        // background poll (CommandPollWorker, every 15 min).
+        lifecycleScope.launch { RemoteCommandExecutor.checkAndExecutePendingCommands(this@CatalogActivity) }
     }
 
     private fun selectTopTab(forYou: Boolean) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { terminalsApi, customersApi } from '../api';
-import { Monitor, MapPin, RefreshCw, Loader2, Clock, FileSpreadsheet } from 'lucide-react';
+import { Monitor, MapPin, RefreshCw, Loader2, Clock, FileSpreadsheet, Power } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { exportToExcel } from '../utils/exportExcel';
 
@@ -31,6 +31,7 @@ export default function TerminalsPage() {
   const [filter, setFilter] = useState('');
   const [customerFilter, setCustomerFilter] = useState('');
   const [customers, setCustomers] = useState<{id: string, name: string}[]>([]);
+  const [restartingId, setRestartingId] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -59,6 +60,19 @@ export default function TerminalsPage() {
     if (!confirm('Rotate API key? The terminal will need re-enrollment.')) return;
     const res = await terminalsApi.rotateKey(id);
     alert(`New API key: ${res.data.newKey}`);
+  };
+
+  const forceRestart = async (id: string, terminalId: string) => {
+    if (!confirm(`Force restart the WL BizStore app on ${terminalId}?\n\nThe app will relaunch the next time the device checks in (usually within a few minutes, or immediately if the app is currently open).`)) return;
+    setRestartingId(id);
+    try {
+      await terminalsApi.sendCommand(id, 'RESTART_APP');
+      alert('Restart command queued. It will run next time the device checks in.');
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to queue restart command');
+    } finally {
+      setRestartingId(null);
+    }
   };
 
   const exportExcel = () => {
@@ -193,6 +207,16 @@ export default function TerminalsPage() {
                           style={{ fontSize: '11px' }}
                         >
                           🔑 Rotate
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => forceRestart(t.id, t.terminalId)}
+                          disabled={t.status !== 'ACTIVE' || restartingId === t.id}
+                          title="Force restart the Android app on this device"
+                          style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          {restartingId === t.id ? <Loader2 size={12} className="spinner" /> : <Power size={12} />}
+                          Force Restart
                         </button>
                         {t.status === 'ACTIVE' && (
                           <button

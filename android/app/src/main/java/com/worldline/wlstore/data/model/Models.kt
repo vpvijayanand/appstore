@@ -115,3 +115,20 @@ data class CustomerInfo(
     val name: String,
     val code: String
 )
+
+// ── Remote Device Commands (admin → Android, e.g. force restart) ────────────
+
+data class PendingCommandsResponse(
+    val commands: List<DeviceCommandDto>
+)
+
+data class DeviceCommandDto(
+    val id: String,
+    val type: String,          // e.g. RESTART_APP
+    val payload: Map<String, Any>? = null
+)
+
+data class CompleteCommandRequest(
+    val status: String,        // COMPLETED | FAILED
+    val errorMessage: String? = null
+)
