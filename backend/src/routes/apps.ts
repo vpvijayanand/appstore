@@ -64,6 +64,7 @@ router.post('/upload', requireAdmin, upload.single('apk'), async (req: Request, 
       version: z.string().min(1),
       versionCode: z.string().transform(Number),
       minOsApi: z.string().transform(Number).optional(),
+      visibility: z.enum(['PUBLIC', 'PRIVATE']).optional(),
     });
 
     const data = schema.parse(req.body);
@@ -90,6 +91,7 @@ router.post('/upload', requireAdmin, upload.single('apk'), async (req: Request, 
         sizeBytes: BigInt(req.file.size),
         minOsApi: data.minOsApi || 26,
         isPublished: false,
+        visibility: data.visibility || 'PRIVATE',
       },
     });
 
@@ -115,10 +117,10 @@ router.post('/upload', requireAdmin, upload.single('apk'), async (req: Request, 
 // ── Update App Metadata ───────────────────────────────────────────────────────
 router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { isPublished, description, categoryId, iconUrl } = req.body;
+    const { isPublished, description, categoryId, iconUrl, visibility } = req.body;
     const app = await prisma.app.update({
       where: { id: req.params.id },
-      data: { isPublished, description, categoryId, iconUrl },
+      data: { isPublished, description, categoryId, iconUrl, visibility },
     });
 
     await prisma.adminAuditLog.create({

@@ -50,6 +50,21 @@
                     android:textColor="#9AA0AD"
                     android:layout_marginBottom="6dp" />
 
+                <TextView
+                    android:id="@+id/tv_assignment_badge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:background="@drawable/bg_badge_pill"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp"
+                    android:layout_marginBottom="6dp"
+                    android:visibility="gone" />
+
                 <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content">
                     <TextView
                         android:id="@+id/tv_version"

@@ -13,6 +13,8 @@ import analyticsRouter from './routes/analytics';
 import customersRouter from './routes/customers';
 import terminalsRouter from './routes/terminals';
 import categoriesRouter from './routes/categories';
+import terminalMastersRouter from './routes/terminal-masters';
+import assignmentsRouter from './routes/assignments';
 import { initMinIO } from './services/minio';
 
 const app = express();
@@ -63,6 +65,8 @@ app.use('/api/analytics', analyticsRouter);   // Admin-facing
 app.use('/api/customers', customersRouter);   // Admin-facing
 app.use('/api/terminals', terminalsRouter);   // Admin-facing
 app.use('/api/categories', categoriesRouter); // Admin-facing
+app.use('/api/terminal-masters', terminalMastersRouter); // Admin-facing (Serial No / TID device master)
+app.use('/api/assignments', assignmentsRouter);          // Admin-facing (App <-> Customer/Terminal assignment)
 
 // ── 404 & Error Handler ───────────────────────────────────────────────────────
 app.use((_req, res) => {

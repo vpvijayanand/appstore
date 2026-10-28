@@ -101,4 +101,29 @@ export const terminalsApi = {
     api.patch(`/terminals/${id}/status`, { status }),
 };
 
+// ── Terminal Masters (Serial No / TID device provisioning) ────────────────────
+export const terminalMastersApi = {
+  list: (params?: Record<string, string>) =>
+    api.get('/terminal-masters', { params }),
+  get: (id: string) => api.get(`/terminal-masters/${id}`),
+  create: (data: Record<string, string>) => api.post('/terminal-masters', data),
+  bulkImport: (rows: Record<string, string>[]) =>
+    api.post('/terminal-masters/bulk-import', { rows }),
+  update: (id: string, data: Record<string, unknown>) =>
+    api.patch(`/terminal-masters/${id}`, data),
+  delete: (id: string) => api.delete(`/terminal-masters/${id}`),
+};
+
+// ── App Assignments (App <-> Customer/Terminal mapping) ───────────────────────
+export const assignmentsApi = {
+  list: (params?: Record<string, string>) => api.get('/assignments', { params }),
+  bulk: (payload: {
+    appIds: string[];
+    targets: { scope: 'CUSTOMER'; customerIds: string[] } | { scope: 'TERMINAL'; terminalMasterIds: string[] };
+    mode: 'DEFAULT' | 'ON_REQUEST';
+    replaceExisting?: boolean;
+  }) => api.post('/assignments/bulk', payload),
+  delete: (id: string) => api.delete(`/assignments/${id}`),
+};
+
 export default api;

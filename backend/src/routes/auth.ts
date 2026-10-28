@@ -84,30 +84,67 @@ const enrollSchema = z.object({
   branchCode: z.string().optional(),
 });
 
+// Device provisioning policy for /terminal/enroll:
+//  - 'strict' (recommended for production): the TID MUST already exist as a
+//    pre-provisioned TerminalMaster (created by an admin, optionally in bulk).
+//    The customer is derived ONLY from that master record — the client-supplied
+//    customerId is ignored for trust purposes. Unknown TIDs are rejected.
+//  - 'auto' (default, convenient for dev/demo): if no TerminalMaster exists for
+//    the TID, one is created on the fly using the client-supplied customerId,
+//    so existing flows keep working. Set TERMINAL_ENROLLMENT_MODE=strict to
+//    close this gap once devices are provisioned via the admin portal.
+const ENROLLMENT_MODE = (process.env.TERMINAL_ENROLLMENT_MODE || 'auto').toLowerCase();
+
 router.post('/terminal/enroll', async (req: Request, res: Response) => {
   try {
     const data = enrollSchema.parse(req.body);
 
-    // Accept either the customer's UUID or its short code (e.g. "RETAIL_A")
-    const isUuid = z.string().uuid().safeParse(data.customerId).success;
-    const customer = await prisma.customer.findUnique({
-      where: isUuid ? { id: data.customerId } : { code: data.customerId.toUpperCase() },
-    });
-    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+    // 1. Resolve the pre-provisioned Terminal Master by TID (the source of truth).
+    let master = await prisma.terminalMaster.findUnique({ where: { tid: data.terminalId }, include: { customer: true } });
 
-    // Upsert terminal
+    if (!master) {
+      if (ENROLLMENT_MODE === 'strict') {
+        return res.status(403).json({ error: 'Device not pre-provisioned. Ask an administrator to register this Serial No / TID before enrolling.' });
+      }
+
+      // Auto-create mode: trust the client-supplied customerId (legacy behavior),
+      // but materialize a TerminalMaster so the device is visible/manageable afterwards.
+      const isUuid = z.string().uuid().safeParse(data.customerId).success;
+      const customer = await prisma.customer.findUnique({
+        where: isUuid ? { id: data.customerId } : { code: data.customerId.toUpperCase() },
+      });
+      if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+      master = await prisma.terminalMaster.create({
+        data: {
+          tid: data.terminalId,
+          serialNo: data.serialNo || `AUTO-${data.terminalId}`,
+          customerId: customer.id,
+          model: data.model,
+          site: data.site,
+          branchCode: data.branchCode,
+          notes: 'Auto-created at enrollment (no pre-provisioned master found)',
+        },
+        include: { customer: true },
+      });
+    }
+
+    const customer = master.customer;
+
+    // 2. Upsert the Terminal, always linked to the trusted master's customer.
     const apiKey = 'wl_' + crypto.randomBytes(24).toString('hex');
     const terminal = await prisma.terminal.upsert({
       where: { terminalId: data.terminalId },
-      update: { lastSeenAt: new Date(), status: 'ACTIVE' },
+      update: { lastSeenAt: new Date(), status: 'ACTIVE', terminalMasterId: master.id, customerId: customer.id },
       create: {
         terminalId: data.terminalId,
         customerId: customer.id,
-        serialNo: data.serialNo,
+        terminalMasterId: master.id,
+        serialNo: data.serialNo || master.serialNo,
         imei: data.imei,
-        model: data.model,
-        site: data.site,
-        branchCode: data.branchCode,
+        model: data.model || master.model,
+        site: data.site || master.site,
+        branchCode: data.branchCode || master.branchCode,
         apiKey,
         status: 'ACTIVE',
       },
@@ -121,6 +158,7 @@ router.post('/terminal/enroll', async (req: Request, res: Response) => {
     });
   } catch (e) {
     if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
+    console.error(e);
     return res.status(500).json({ error: 'Enrollment failed' });
   }
 });

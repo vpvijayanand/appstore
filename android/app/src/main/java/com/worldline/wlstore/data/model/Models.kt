@@ -30,10 +30,24 @@ data class AppInfo(
     val minOsApi: Int,
     val iconUrl: String?,
     val checksum: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val categoryId: String? = null,
+    val categoryName: String? = null,
+    val visibility: String? = null,          // PUBLIC | PRIVATE
+    val isAssigned: Boolean = false,
+    val assignmentMode: String? = null,      // DEFAULT | ON_REQUEST
+    val assignmentSource: String? = null     // CUSTOMER | TERMINAL
 ) : Parcelable {
     val sizeMb: String get() = "%.1f MB".format(sizeBytes.toLong() / 1024.0 / 1024.0)
 }
+
+// ── Default Apps (auto-download on first run) ────────────────────────────────
+
+data class DefaultAppsResponse(
+    val apps: List<AppInfo>,
+    val count: Int
+)
+
 
 // ── Download Models ──────────────────────────────────────────────────────────
 

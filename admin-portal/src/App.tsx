@@ -9,6 +9,8 @@ import TerminalsPage from './pages/TerminalsPage';
 import AnalyticsMapPage from './pages/AnalyticsMapPage';
 import DownloadsPage from './pages/DownloadsPage';
 import CategoriesPage from './pages/CategoriesPage';
+import DeviceMasterPage from './pages/DeviceMasterPage';
+import AssignmentsPage from './pages/AssignmentsPage';
 import 'leaflet/dist/leaflet.css';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +40,8 @@ function AppRoutes() {
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="terminals" element={<TerminalsPage />} />
+        <Route path="device-master" element={<DeviceMasterPage />} />
+        <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="map" element={<AnalyticsMapPage />} />
         <Route path="downloads" element={<DownloadsPage />} />
       </Route>

@@ -14,6 +14,7 @@ import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.EnrollmentRequest
 import com.worldline.wlstore.ui.catalog.CatalogActivity
+import com.worldline.wlstore.ui.setup.DefaultAppsSetupActivity
 import kotlinx.coroutines.launch
 
 /**
@@ -110,7 +111,7 @@ class EnrollmentActivity : AppCompatActivity() {
 
                     ApiClient.setApiKey(data.apiKey)
                     tvStatus.text = "✅ Enrolled! Launching store..."
-                    navigateToCatalog()
+                    navigateAfterEnrollment()
                 } else {
                     val error = response.errorBody()?.string() ?: "Unknown error"
                     tvStatus.text = "❌ Enrollment failed: $error"
@@ -128,6 +129,34 @@ class EnrollmentActivity : AppCompatActivity() {
     private fun navigateToCatalog() {
         startActivity(Intent(this, CatalogActivity::class.java))
         finish()
+    }
+
+    /**
+     * After a fresh enrollment, checks whether the resolved customer/device has any
+     * "Default" assigned apps; if so, routes through the auto-download setup screen
+     * (showing "1/3, 2/3…" progress) before landing on the catalog. Any failure here
+     * is non-fatal — enrollment itself already succeeded — so it falls back to the
+     * catalog directly.
+     */
+    private fun navigateAfterEnrollment() {
+        lifecycleScope.launch {
+            try {
+                val defaultsResponse = ApiClient.service.getDefaultApps()
+                if (defaultsResponse.isSuccessful) {
+                    val apps = defaultsResponse.body()?.apps ?: emptyList()
+                    if (apps.isNotEmpty()) {
+                        val intent = Intent(this@EnrollmentActivity, DefaultAppsSetupActivity::class.java)
+                        intent.putParcelableArrayListExtra(DefaultAppsSetupActivity.EXTRA_APPS, ArrayList(apps))
+                        startActivity(intent)
+                        finish()
+                        return@launch
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("WLStore", "Could not fetch default apps: ${e.message}")
+            }
+            navigateToCatalog()
+        }
     }
 
     private fun getSecurePrefs(): android.content.SharedPreferences {

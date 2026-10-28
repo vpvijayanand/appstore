@@ -19,7 +19,7 @@ declare global {
   namespace Express {
     interface Request {
       admin?: AdminJwtPayload;
-      terminal?: TerminalPayload & { dbId: string };
+      terminal?: TerminalPayload & { dbId: string; terminalMasterId: string | null };
     }
   }
 }
@@ -50,7 +50,7 @@ export async function requireTerminal(req: Request, res: Response, next: NextFun
 
   const terminal = await prisma.terminal.findUnique({
     where: { apiKey },
-    select: { id: true, terminalId: true, customerId: true, status: true },
+    select: { id: true, terminalId: true, customerId: true, status: true, terminalMasterId: true },
   });
 
   if (!terminal) {
@@ -71,6 +71,7 @@ export async function requireTerminal(req: Request, res: Response, next: NextFun
     dbId: terminal.id,
     terminalId: terminal.terminalId,
     customerId: terminal.customerId,
+    terminalMasterId: terminal.terminalMasterId,
   };
 
   next();

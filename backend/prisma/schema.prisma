@@ -41,8 +41,77 @@ model Customer {
   updatedAt   DateTime   @updatedAt @map("updated_at")
   terminals   Terminal[]
   entitlements CustomerEntitlement[]
+  terminalMasters TerminalMaster[]
+  assignments AppAssignment[]
 
   @@map("customers")
+}
+
+// ─── Terminal Master (Serial No + TID master, mapped to a Customer) ─────────
+// Pre-provisioning record: created by an admin BEFORE a physical device ever
+// enrolls. Apps are assigned against this master (see AppAssignment) so an
+// entire batch of devices can be provisioned ahead of time. Once the real
+// device enrolls with a matching TID, its live `Terminal` record links back
+// here (see Terminal.terminalMasterId) and inherits the customer from this
+// master rather than trusting whatever the device claims at enroll time.
+model TerminalMaster {
+  id          String   @id @default(uuid())
+  tid         String   @unique @map("tid")
+  serialNo    String   @unique @map("serial_no")
+  customerId  String   @map("customer_id")
+  customer    Customer @relation(fields: [customerId], references: [id])
+  model       String?
+  branchCode  String?  @map("branch_code")
+  site        String?
+  notes       String?
+  status      TerminalMasterStatus @default(ACTIVE)
+  terminal    Terminal?
+  assignments AppAssignment[]
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("terminal_masters")
+}
+
+enum TerminalMasterStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ─── App Assignment (replaces CustomerEntitlement going forward) ────────────
+// An app granted either to an entire Customer (all its devices) or to one
+// specific TerminalMaster (Serial No/TID), with a mode controlling whether the
+// Android client auto-installs it (DEFAULT) or the user must request it
+// (ON_REQUEST).
+model AppAssignment {
+  id               String   @id @default(uuid())
+  appId            String   @map("app_id")
+  app              App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  scope            AssignmentScope
+  customerId       String?  @map("customer_id")
+  customer         Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  terminalMasterId String?  @map("terminal_master_id")
+  terminalMaster   TerminalMaster? @relation(fields: [terminalMasterId], references: [id], onDelete: Cascade)
+  mode             AssignmentMode @default(ON_REQUEST)
+  grantedAt        DateTime @default(now()) @map("granted_at")
+  grantedById      String?  @map("granted_by_id")
+
+  @@unique([appId, customerId])
+  @@unique([appId, terminalMasterId])
+  @@index([customerId])
+  @@index([terminalMasterId])
+  @@map("app_assignments")
+}
+
+enum AssignmentScope {
+  CUSTOMER
+  TERMINAL
+}
+
+enum AssignmentMode {
+  DEFAULT
+  ON_REQUEST
 }
 
 // ─── Categories ──────────────────────────────────────────────────────────────
@@ -78,12 +147,19 @@ model App {
   iconUrl         String?  @map("icon_url")
   screenshotUrls  String[] @map("screenshot_urls")
   isPublished     Boolean  @default(false) @map("is_published")
+  visibility      AppVisibility @default(PRIVATE)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   downloadEvents  DownloadEvent[]
   entitlements    CustomerEntitlement[]
+  assignments     AppAssignment[]
 
   @@map("apps")
+}
+
+enum AppVisibility {
+  PUBLIC
+  PRIVATE
 }
 
 // ─── Customer Entitlements ───────────────────────────────────────────────────
@@ -119,6 +195,8 @@ model Terminal {
   lastLongitude  Decimal?       @map("last_longitude")
   enrolledAt     DateTime       @default(now()) @map("enrolled_at")
   downloadEvents DownloadEvent[]
+  terminalMasterId String?      @unique @map("terminal_master_id")
+  terminalMaster TerminalMaster? @relation(fields: [terminalMasterId], references: [id])
 
   @@map("terminals")
 }

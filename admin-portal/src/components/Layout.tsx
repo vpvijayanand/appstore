@@ -3,7 +3,7 @@ import { useAuth } from '../AuthContext';
 import logoMark from '../assets/logo-mark.png';
 import {
   LayoutDashboard, Package, Tag, Users, Monitor,
-  Map, Download, LogOut, Search, Bell
+  Map, Download, LogOut, Search, Bell, HardDrive, Share2
 } from 'lucide-react';
 
 const navItems = [
@@ -12,6 +12,8 @@ const navItems = [
   { path: '/categories', icon: Tag, label: 'Categories' },
   { path: '/customers', icon: Users, label: 'Customers' },
   { path: '/terminals', icon: Monitor, label: 'Terminals' },
+  { path: '/device-master', icon: HardDrive, label: 'Device Master' },
+  { path: '/assignments', icon: Share2, label: 'App Assignments' },
   { path: '/map', icon: Map, label: 'Location Map' },
   { path: '/downloads', icon: Download, label: 'Downloads' },
 ];

@@ -13,6 +13,7 @@ import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AppInfo
 import com.worldline.wlstore.service.InstallManager
+import com.worldline.wlstore.service.InstalledAppsHelper
 import com.worldline.wlstore.service.TelemetryService
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -38,6 +39,7 @@ class AppDetailActivity : AppCompatActivity() {
     private lateinit var tvVersion: TextView
     private lateinit var tvSize: TextView
     private lateinit var tvDescription: TextView
+    private lateinit var tvAssignmentBadge: TextView
     private lateinit var btnInstall: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var tvStatus: TextView
@@ -79,6 +81,11 @@ class AppDetailActivity : AppCompatActivity() {
         setupInstallButton()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (!isInstalling) refreshButtonState()
+    }
+
     private fun bindViews() {
         ivIcon = findViewById(R.id.iv_icon)
         tvName = findViewById(R.id.tv_name)
@@ -86,6 +93,7 @@ class AppDetailActivity : AppCompatActivity() {
         tvVersion = findViewById(R.id.tv_version)
         tvSize = findViewById(R.id.tv_size)
         tvDescription = findViewById(R.id.tv_description)
+        tvAssignmentBadge = findViewById(R.id.tv_assignment_badge)
         btnInstall = findViewById(R.id.btn_install)
         progressBar = findViewById(R.id.progress_bar)
         tvStatus = findViewById(R.id.tv_status)
@@ -99,11 +107,50 @@ class AppDetailActivity : AppCompatActivity() {
         tvSize.text = a.sizeMb
         tvDescription.text = a.description ?: "No description available."
         supportActionBar?.title = a.name
+
+        if (a.isAssigned) {
+            tvAssignmentBadge.visibility = View.VISIBLE
+            tvAssignmentBadge.text = if (a.assignmentMode == "DEFAULT") "★ Default app for your device" else "✓ Assigned to you"
+        } else if (a.visibility == "PUBLIC") {
+            tvAssignmentBadge.visibility = View.VISIBLE
+            tvAssignmentBadge.text = "Public catalog app"
+        } else {
+            tvAssignmentBadge.visibility = View.GONE
+        }
+
+        refreshButtonState()
+    }
+
+    /** Resolves Install / Open / Update based on what's actually installed on this device. */
+    private fun refreshButtonState() {
+        val a = app ?: return
+        when (InstalledAppsHelper.resolveState(this, a.packageName, a.versionCode)) {
+            InstalledAppsHelper.InstallState.NOT_INSTALLED -> {
+                btnInstall.text = "Install"
+                btnInstall.isEnabled = true
+            }
+            InstalledAppsHelper.InstallState.UPDATE_AVAILABLE -> {
+                btnInstall.text = "Update"
+                btnInstall.isEnabled = true
+            }
+            InstalledAppsHelper.InstallState.INSTALLED -> {
+                btnInstall.text = "Open"
+                btnInstall.isEnabled = true
+            }
+        }
     }
 
     private fun setupInstallButton() {
         btnInstall.setOnClickListener {
-            if (!isInstalling) startInstallFlow()
+            val a = app ?: return@setOnClickListener
+            when (InstalledAppsHelper.resolveState(this, a.packageName, a.versionCode)) {
+                InstalledAppsHelper.InstallState.INSTALLED -> {
+                    val launchIntent = InstalledAppsHelper.getLaunchIntent(this, a.packageName)
+                    if (launchIntent != null) startActivity(launchIntent)
+                    else Toast.makeText(this, "Unable to open ${a.name}", Toast.LENGTH_SHORT).show()
+                }
+                else -> if (!isInstalling) startInstallFlow()
+            }
         }
     }
 
@@ -180,8 +227,10 @@ class AppDetailActivity : AppCompatActivity() {
                     lifecycleScope.launch {
                         reportResult(dlData.eventId, a, if (success) "SUCCESS" else "FAILED")
                         if (success) {
-                            btnInstall.text = "Installed ✓"
                             tvStatus.text = "✅ ${a.name} installed successfully"
+                            isInstalling = false
+                            btnInstall.isEnabled = true
+                            refreshButtonState()
                         } else {
                             showError(message)
                         }

@@ -5,6 +5,41 @@
     android:orientation="vertical"
     android:background="#0F1117">
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="#1A1D26"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/tv_tab_for_you"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="For You"
+            android:gravity="center"
+            android:padding="10dp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:background="@drawable/bg_badge_pill"
+            android:layout_marginEnd="6dp" />
+
+        <TextView
+            android:id="@+id/tv_tab_all_apps"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="All Apps"
+            android:gravity="center"
+            android:padding="10dp"
+            android:textStyle="bold"
+            android:textColor="#9AA0AD"
+            android:textSize="13sp" />
+
+    </LinearLayout>
+
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tab_layout"
         android:layout_width="match_parent"
@@ -42,3 +77,4 @@
         android:layout_weight="1" />
 
 </LinearLayout>
+

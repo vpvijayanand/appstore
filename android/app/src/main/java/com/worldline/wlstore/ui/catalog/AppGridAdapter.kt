@@ -5,10 +5,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.worldline.wlstore.R
 import com.worldline.wlstore.data.model.AppInfo
+import com.worldline.wlstore.service.InstalledAppsHelper
 
 class AppGridAdapter(
     private val apps: List<AppInfo>,
@@ -19,6 +21,7 @@ class AppGridAdapter(
         val icon: ImageView = view.findViewById(R.id.iv_app_icon)
         val name: TextView = view.findViewById(R.id.tv_app_name)
         val developer: TextView = view.findViewById(R.id.tv_app_developer)
+        val badge: TextView = view.findViewById(R.id.tv_installed_badge)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -38,8 +41,27 @@ class AppGridAdapter(
             holder.icon.setImageResource(R.drawable.ic_default_app)
         }
 
+        val context = holder.itemView.context
+        when (InstalledAppsHelper.resolveState(context, app.packageName, app.versionCode)) {
+            InstalledAppsHelper.InstallState.INSTALLED -> {
+                holder.badge.visibility = View.VISIBLE
+                holder.badge.text = "✓"
+                holder.badge.background = ContextCompat.getDrawable(context, R.drawable.bg_badge_pill)
+            }
+            InstalledAppsHelper.InstallState.UPDATE_AVAILABLE -> {
+                holder.badge.visibility = View.VISIBLE
+                holder.badge.text = "↑"
+                holder.badge.background = ContextCompat.getDrawable(context, R.drawable.bg_badge_pill)
+                holder.badge.backgroundTintList = android.content.res.ColorStateList.valueOf(0xFFF9AB00.toInt())
+            }
+            InstalledAppsHelper.InstallState.NOT_INSTALLED -> {
+                holder.badge.visibility = View.GONE
+            }
+        }
+
         holder.itemView.setOnClickListener { onClick(app) }
     }
 
     override fun getItemCount() = apps.size
 }
+

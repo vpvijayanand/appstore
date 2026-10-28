@@ -49,6 +49,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.setup.DefaultAppsSetupActivity"
+            android:theme="@style/Theme.WLStore.Catalog"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.detail.AppDetailActivity"
             android:theme="@style/Theme.WLStore.Catalog"
             android:exported="false" />

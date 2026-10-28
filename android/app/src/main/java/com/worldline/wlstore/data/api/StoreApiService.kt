@@ -18,6 +18,9 @@ interface StoreApiService {
     @GET("catalog")
     suspend fun getCatalog(): Response<CatalogResponse>
 
+    @GET("catalog/default-apps")
+    suspend fun getDefaultApps(): Response<DefaultAppsResponse>
+
     @GET("catalog/download/{appId}")
     suspend fun getDownloadUrl(@Path("appId") appId: String): Response<DownloadUrlResponse>
 

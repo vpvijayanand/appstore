@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { appsApi, categoriesApi } from '../api';
-import { Plus, Upload, Search, Package, Trash2, Eye, CheckCircle, XCircle, Loader2, Download, FileSpreadsheet } from 'lucide-react';
+import { Plus, Upload, Search, Package, Trash2, Eye, CheckCircle, XCircle, Loader2, Download, FileSpreadsheet, Globe, Lock } from 'lucide-react';
 import { exportToExcel } from '../utils/exportExcel';
 
 interface App {
@@ -10,6 +10,7 @@ interface App {
   version: string;
   sizeBytes: string;
   isPublished: boolean;
+  visibility: 'PUBLIC' | 'PRIVATE';
   category: { id: string; name: string };
   developer: string;
   createdAt: string;
@@ -96,6 +97,11 @@ export default function AppsPage() {
     load();
   };
 
+  const toggleVisibility = async (app: App) => {
+    await appsApi.update(app.id, { visibility: app.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC' });
+    load();
+  };
+
   const deleteApp = async (app: App) => {
     if (!confirm(`Delete "${app.name}"? This cannot be undone.`)) return;
     await appsApi.delete(app.id);
@@ -124,6 +130,7 @@ export default function AppsPage() {
       'Version':     app.version,
       'Size':        formatBytes(app.sizeBytes),
       'Status':      app.isPublished ? 'Published' : 'Draft',
+      'Visibility':  app.visibility === 'PUBLIC' ? 'Public (All customers)' : 'Private (Assigned only)',
       'Created At':  new Date(app.createdAt).toLocaleDateString(),
     }));
     exportToExcel(rows, 'apps_catalog', 'Apps');
@@ -180,6 +187,7 @@ export default function AppsPage() {
                 <th>Version</th>
                 <th>Size</th>
                 <th>Status</th>
+                <th>Visibility</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -212,6 +220,17 @@ export default function AppsPage() {
                     }
                   </td>
                   <td>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => toggleVisibility(app)}
+                      title={app.visibility === 'PUBLIC' ? 'Visible to all customers — click to make Private' : 'Private (assignment required) — click to make Public'}
+                    >
+                      {app.visibility === 'PUBLIC'
+                        ? <span className="badge badge-info"><Globe size={11} /> Public</span>
+                        : <span className="badge badge-default"><Lock size={11} /> Private</span>}
+                    </button>
+                  </td>
+                  <td>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button
                         className="btn btn-secondary btn-sm"
@@ -235,7 +254,7 @@ export default function AppsPage() {
               ))}
               {apps.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                     <Package size={40} style={{ marginBottom: '12px', opacity: 0.3 }} />
                     <div>No apps found. Upload your first APK.</div>
                   </td>
