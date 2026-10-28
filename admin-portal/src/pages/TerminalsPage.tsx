@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { terminalsApi, customersApi } from '../api';
-import { Monitor, MapPin, RefreshCw, Loader2, Clock, FileSpreadsheet, Power } from 'lucide-react';
+import { Monitor, MapPin, RefreshCw, Loader2, Clock, FileSpreadsheet, Power, RotateCw } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { exportToExcel } from '../utils/exportExcel';
 
@@ -32,6 +32,7 @@ export default function TerminalsPage() {
   const [customerFilter, setCustomerFilter] = useState('');
   const [customers, setCustomers] = useState<{id: string, name: string}[]>([]);
   const [restartingId, setRestartingId] = useState<string | null>(null);
+  const [restartingDeviceId, setRestartingDeviceId] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -72,6 +73,19 @@ export default function TerminalsPage() {
       alert(e.response?.data?.error || 'Failed to queue restart command');
     } finally {
       setRestartingId(null);
+    }
+  };
+
+  const restartDevice = async (id: string, terminalId: string) => {
+    if (!confirm(`Reboot the entire physical device for ${terminalId}?\n\nThis restarts the Android OS itself, not just the app. It only works on terminals provisioned as Android Device Owner — on other devices this command will fail and be reported back as such.`)) return;
+    setRestartingDeviceId(id);
+    try {
+      await terminalsApi.sendCommand(id, 'RESTART_DEVICE');
+      alert('Device reboot command queued. It will run next time the device checks in.');
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to queue device reboot command');
+    } finally {
+      setRestartingDeviceId(null);
     }
   };
 
@@ -217,6 +231,16 @@ export default function TerminalsPage() {
                         >
                           {restartingId === t.id ? <Loader2 size={12} className="spinner" /> : <Power size={12} />}
                           Force Restart
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => restartDevice(t.id, t.terminalId)}
+                          disabled={t.status !== 'ACTIVE' || restartingDeviceId === t.id}
+                          title="Reboot the physical device (requires Device Owner provisioning)"
+                          style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          {restartingDeviceId === t.id ? <Loader2 size={12} className="spinner" /> : <RotateCw size={12} />}
+                          Restart Device
                         </button>
                         {t.status === 'ACTIVE' && (
                           <button

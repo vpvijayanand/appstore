@@ -1,5 +1,6 @@
 package com.worldline.wlstore.service
 
+import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
 import android.util.Log
@@ -41,6 +42,9 @@ object RemoteCommandExecutor {
                 reportOutcome(command.id, "COMPLETED")
                 restartApp(context)
             }
+            "RESTART_DEVICE" -> {
+                restartDevice(context, command.id)
+            }
             else -> {
                 Log.w(TAG, "Unsupported command type: ${command.type}")
                 reportOutcome(command.id, "FAILED", "Unsupported command type on this app version")
@@ -65,5 +69,30 @@ object RemoteCommandExecutor {
             appContext.startActivity(launchIntent)
         }
         Runtime.getRuntime().exit(0)
+    }
+
+    /**
+     * Reboots the whole physical device. Requires this app to be Android
+     * Device Owner (see WLDeviceAdminReceiver) — if it isn't, this fails
+     * gracefully and reports back to the admin portal rather than crashing,
+     * since most terminals are not provisioned this way by default.
+     */
+    private suspend fun restartDevice(context: Context, commandId: String) {
+        val appContext = context.applicationContext
+        val dpm = appContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+
+        if (!dpm.isDeviceOwnerApp(appContext.packageName)) {
+            Log.w(TAG, "RESTART_DEVICE requested but app is not Device Owner on this terminal")
+            reportOutcome(commandId, "FAILED", "Device is not provisioned as Device Owner; cannot reboot OS")
+            return
+        }
+
+        // Report completion before rebooting — the device goes down immediately after.
+        reportOutcome(commandId, "COMPLETED")
+        try {
+            dpm.reboot(WLDeviceAdminReceiver.componentName(appContext))
+        } catch (e: SecurityException) {
+            Log.e(TAG, "dpm.reboot() failed: ${e.message}")
+        }
     }
 }

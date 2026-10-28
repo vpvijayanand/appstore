@@ -226,6 +226,7 @@ model DeviceCommand {
 
 enum DeviceCommandType {
   RESTART_APP
+  RESTART_DEVICE
 }
 
 enum DeviceCommandStatus {
