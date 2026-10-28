@@ -2,11 +2,25 @@ import { PrismaClient, AdminRole, TerminalStatus, InstallStatus } from '@prisma/
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import { initMinIO, uploadApk } from '../src/services/minio';
 
 const prisma = new PrismaClient();
 
 function randomApiKey(): string {
   return 'wl_' + crypto.randomBytes(24).toString('hex');
+}
+
+// Uploads a small, deterministic placeholder "APK" blob to MinIO for the given
+// object name so the download flow is fully real end-to-end (actual bytes in
+// storage, checksum/size computed from those exact bytes). This is NOT a real
+// installable Android package — it just exercises presigned-URL download,
+// progress, and checksum verification in the demo. For an actually installable
+// APK, upload a real file via the Admin Portal's Apps page instead.
+async function seedApk(objectName: string, label: string) {
+  const buffer = Buffer.from(`WL BizStore demo APK placeholder — ${label} — ${objectName}`);
+  const apkUrl = await uploadApk(objectName, buffer, 'application/vnd.android.package-archive');
+  const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
+  return { apkUrl, checksum, sizeBytes: BigInt(buffer.length) };
 }
 
 function randomCoord(baseLat: number, baseLng: number, spread = 0.5) {
@@ -105,114 +119,99 @@ async function main() {
   console.log('✅ Customers created:', customers.map(c => c.name).join(', '));
 
   // ── Apps ──────────────────────────────────────────────────────────────────
-  const apps = await Promise.all([
-    prisma.app.upsert({
-      where: { packageName: 'com.worldline.payterminal' },
-      update: {},
+  await initMinIO();
+
+  const appDefs = [
+    {
+      id: 'app11111-1111-1111-1111-111111111111',
+      categoryId: '11111111-1111-1111-1111-111111111111',
+      name: 'WL Pay Terminal',
+      packageName: 'com.worldline.payterminal',
+      description: 'Core payment processing application for Worldline POS terminals. Supports UPI, cards, contactless, and EMI transactions.',
+      version: '3.2.1',
+      versionCode: 321,
+      objectName: 'com.worldline.payterminal-3.2.1.apk',
+      minOsApi: 26,
+      visibility: 'PUBLIC' as const,
+    },
+    {
+      id: 'app22222-2222-2222-2222-222222222222',
+      categoryId: '11111111-1111-1111-1111-111111111111',
+      name: 'EMV Kernel Suite',
+      packageName: 'com.worldline.emvkernel',
+      description: 'EMV Level 1 & 2 kernel for chip card processing. Required for all certified payment flows.',
+      version: '2.0.4',
+      versionCode: 204,
+      objectName: 'com.worldline.emvkernel-2.0.4.apk',
+      minOsApi: 26,
+      visibility: 'PUBLIC' as const,
+    },
+    {
+      id: 'app33333-3333-3333-3333-333333333333',
+      categoryId: '22222222-2222-2222-2222-222222222222',
+      name: 'Device Configurator',
+      packageName: 'com.worldline.deviceconfig',
+      description: 'Terminal configuration and diagnostics tool. Manage network settings, printer, and hardware peripherals.',
+      version: '1.5.0',
+      versionCode: 150,
+      objectName: 'com.worldline.deviceconfig-1.5.0.apk',
+      minOsApi: 26,
+      visibility: 'PRIVATE' as const,
+    },
+    {
+      id: 'app44444-4444-4444-4444-444444444444',
+      categoryId: '33333333-3333-3333-3333-333333333333',
+      name: 'Sales Analytics',
+      packageName: 'com.worldline.salesreport',
+      description: 'Real-time sales dashboard and end-of-day reconciliation reports with CSV/PDF export.',
+      version: '1.2.3',
+      versionCode: 123,
+      objectName: 'com.worldline.salesreport-1.2.3.apk',
+      minOsApi: 26,
+      visibility: 'PRIVATE' as const,
+    },
+    {
+      id: 'app55555-5555-5555-5555-555555555555',
+      categoryId: '44444444-4444-4444-4444-444444444444',
+      name: 'TamperGuard',
+      packageName: 'com.worldline.tamperguard',
+      description: 'Hardware tamper detection and security monitoring agent. Sends alerts on physical breach detection.',
+      version: '2.1.0',
+      versionCode: 210,
+      objectName: 'com.worldline.tamperguard-2.1.0.apk',
+      minOsApi: 28,
+      visibility: 'PRIVATE' as const,
+    },
+  ];
+
+  const apps = [];
+  for (const def of appDefs) {
+    const { apkUrl, checksum, sizeBytes } = await seedApk(def.objectName, def.name);
+    const app = await prisma.app.upsert({
+      where: { packageName: def.packageName },
+      update: { apkUrl, apkObjectName: def.objectName, checksum, sizeBytes, isPublished: true, visibility: def.visibility },
       create: {
-        id: 'app11111-1111-1111-1111-111111111111',
-        categoryId: '11111111-1111-1111-1111-111111111111',
-        name: 'WL Pay Terminal',
-        packageName: 'com.worldline.payterminal',
-        description: 'Core payment processing application for Worldline POS terminals. Supports UPI, cards, contactless, and EMI transactions.',
+        id: def.id,
+        categoryId: def.categoryId,
+        name: def.name,
+        packageName: def.packageName,
+        description: def.description,
         developer: 'Worldline Global Services',
-        version: '3.2.1',
-        versionCode: 321,
-        apkUrl: 'placeholder://wl-apks/com.worldline.payterminal-3.2.1.apk',
-        apkObjectName: 'com.worldline.payterminal-3.2.1.apk',
-        checksum: 'a'.repeat(64),
-        sizeBytes: BigInt(24500000),
-        minOsApi: 26,
+        version: def.version,
+        versionCode: def.versionCode,
+        apkUrl,
+        apkObjectName: def.objectName,
+        checksum,
+        sizeBytes,
+        minOsApi: def.minOsApi,
         isPublished: true,
+        visibility: def.visibility,
         screenshotUrls: [],
       },
-    }),
-    prisma.app.upsert({
-      where: { packageName: 'com.worldline.emvkernel' },
-      update: {},
-      create: {
-        id: 'app22222-2222-2222-2222-222222222222',
-        categoryId: '11111111-1111-1111-1111-111111111111',
-        name: 'EMV Kernel Suite',
-        packageName: 'com.worldline.emvkernel',
-        description: 'EMV Level 1 & 2 kernel for chip card processing. Required for all certified payment flows.',
-        developer: 'Worldline Global Services',
-        version: '2.0.4',
-        versionCode: 204,
-        apkUrl: 'placeholder://wl-apks/com.worldline.emvkernel-2.0.4.apk',
-        apkObjectName: 'com.worldline.emvkernel-2.0.4.apk',
-        checksum: 'b'.repeat(64),
-        sizeBytes: BigInt(8200000),
-        minOsApi: 26,
-        isPublished: true,
-        screenshotUrls: [],
-      },
-    }),
-    prisma.app.upsert({
-      where: { packageName: 'com.worldline.deviceconfig' },
-      update: {},
-      create: {
-        id: 'app33333-3333-3333-3333-333333333333',
-        categoryId: '22222222-2222-2222-2222-222222222222',
-        name: 'Device Configurator',
-        packageName: 'com.worldline.deviceconfig',
-        description: 'Terminal configuration and diagnostics tool. Manage network settings, printer, and hardware peripherals.',
-        developer: 'Worldline Global Services',
-        version: '1.5.0',
-        versionCode: 150,
-        apkUrl: 'placeholder://wl-apks/com.worldline.deviceconfig-1.5.0.apk',
-        apkObjectName: 'com.worldline.deviceconfig-1.5.0.apk',
-        checksum: 'c'.repeat(64),
-        sizeBytes: BigInt(6800000),
-        minOsApi: 26,
-        isPublished: true,
-        screenshotUrls: [],
-      },
-    }),
-    prisma.app.upsert({
-      where: { packageName: 'com.worldline.salesreport' },
-      update: {},
-      create: {
-        id: 'app44444-4444-4444-4444-444444444444',
-        categoryId: '33333333-3333-3333-3333-333333333333',
-        name: 'Sales Analytics',
-        packageName: 'com.worldline.salesreport',
-        description: 'Real-time sales dashboard and end-of-day reconciliation reports with CSV/PDF export.',
-        developer: 'Worldline Global Services',
-        version: '1.2.3',
-        versionCode: 123,
-        apkUrl: 'placeholder://wl-apks/com.worldline.salesreport-1.2.3.apk',
-        apkObjectName: 'com.worldline.salesreport-1.2.3.apk',
-        checksum: 'd'.repeat(64),
-        sizeBytes: BigInt(12000000),
-        minOsApi: 26,
-        isPublished: true,
-        screenshotUrls: [],
-      },
-    }),
-    prisma.app.upsert({
-      where: { packageName: 'com.worldline.tamperguard' },
-      update: {},
-      create: {
-        id: 'app55555-5555-5555-5555-555555555555',
-        categoryId: '44444444-4444-4444-4444-444444444444',
-        name: 'TamperGuard',
-        packageName: 'com.worldline.tamperguard',
-        description: 'Hardware tamper detection and security monitoring agent. Sends alerts on physical breach detection.',
-        developer: 'Worldline Global Services',
-        version: '2.1.0',
-        versionCode: 210,
-        apkUrl: 'placeholder://wl-apks/com.worldline.tamperguard-2.1.0.apk',
-        apkObjectName: 'com.worldline.tamperguard-2.1.0.apk',
-        checksum: 'e'.repeat(64),
-        sizeBytes: BigInt(4500000),
-        minOsApi: 28,
-        isPublished: true,
-        screenshotUrls: [],
-      },
-    }),
-  ]);
-  console.log('✅ Apps created:', apps.map(a => a.name).join(', '));
+    });
+    apps.push(app);
+  }
+  console.log('✅ Apps created (with real uploaded demo APK bytes):', apps.map(a => a.name).join(', '));
 
   // ── Customer Entitlements ─────────────────────────────────────────────────
   await prisma.customerEntitlement.createMany({
@@ -232,6 +231,30 @@ async function main() {
     ],
   });
   console.log('✅ Customer entitlements configured');
+
+  // ── App Assignments (drives Android "For You" / "All Apps") ───────────────
+  // mode=DEFAULT -> shows under "For You" and auto-installs; mode=ON_REQUEST -> shows under "All Apps" only.
+  const assignmentDefs: { customerId: string; appId: string; mode: 'DEFAULT' | 'ON_REQUEST' }[] = [
+    // Retailer A
+    { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app11111-1111-1111-1111-111111111111', mode: 'DEFAULT' },
+    { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app22222-2222-2222-2222-222222222222', mode: 'DEFAULT' },
+    { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app33333-3333-3333-3333-333333333333', mode: 'ON_REQUEST' },
+    // Bank B
+    { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app11111-1111-1111-1111-111111111111', mode: 'DEFAULT' },
+    { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app44444-4444-4444-4444-444444444444', mode: 'ON_REQUEST' },
+    { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app55555-5555-5555-5555-555555555555', mode: 'ON_REQUEST' },
+    // Logistics C
+    { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', appId: 'app33333-3333-3333-3333-333333333333', mode: 'DEFAULT' },
+    { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', appId: 'app44444-4444-4444-4444-444444444444', mode: 'ON_REQUEST' },
+  ];
+  for (const a of assignmentDefs) {
+    await prisma.appAssignment.upsert({
+      where: { appId_customerId: { appId: a.appId, customerId: a.customerId } },
+      update: { mode: a.mode },
+      create: { appId: a.appId, scope: 'CUSTOMER', customerId: a.customerId, mode: a.mode },
+    });
+  }
+  console.log('✅ App assignments configured (For You / All Apps)');
 
   // ── Terminals ─────────────────────────────────────────────────────────────
   const terminalData = [
