@@ -25,6 +25,8 @@ logs/
 # Uploaded APK cache
 uploads/
 *.apk
+# Deliberate exception: real debug-signed demo payload used by prisma/seed.cts
+!prisma/demo-assets/*.apk
 
 # OS
 .DS_Store

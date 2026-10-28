@@ -2,6 +2,8 @@ import { PrismaClient, AdminRole, TerminalStatus, InstallStatus } from '@prisma/
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { initMinIO, uploadApk } from '../src/services/minio';
 
 const prisma = new PrismaClient();
@@ -18,6 +20,17 @@ function randomApiKey(): string {
 // APK, upload a real file via the Admin Portal's Apps page instead.
 async function seedApk(objectName: string, label: string) {
   const buffer = Buffer.from(`WL BizStore demo APK placeholder — ${label} — ${objectName}`);
+  const apkUrl = await uploadApk(objectName, buffer, 'application/vnd.android.package-archive');
+  const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
+  return { apkUrl, checksum, sizeBytes: BigInt(buffer.length) };
+}
+
+// Uploads a REAL, installable debug-signed demo APK from disk (see
+// prisma/demo-assets/). Used for exactly one app so the demo can show a
+// genuine install (checkmark badge, "Open" button) end-to-end on a device.
+async function seedRealApk(objectName: string, assetFileName: string) {
+  const filePath = path.join(__dirname, 'demo-assets', assetFileName);
+  const buffer = fs.readFileSync(filePath);
   const apkUrl = await uploadApk(objectName, buffer, 'application/vnd.android.package-archive');
   const checksum = crypto.createHash('sha256').update(buffer).digest('hex');
   return { apkUrl, checksum, sizeBytes: BigInt(buffer.length) };
@@ -129,10 +142,11 @@ async function main() {
       packageName: 'com.worldline.payterminal',
       description: 'Core payment processing application for Worldline POS terminals. Supports UPI, cards, contactless, and EMI transactions.',
       version: '3.2.1',
-      versionCode: 321,
+      versionCode: 1, // matches the real debug-signed demo-assets APK's embedded versionCode
       objectName: 'com.worldline.payterminal-3.2.1.apk',
       minOsApi: 26,
       visibility: 'PUBLIC' as const,
+      realApkAsset: 'wl-pay-terminal-debug.apk',
     },
     {
       id: 'app22222-2222-2222-2222-222222222222',
@@ -186,7 +200,9 @@ async function main() {
 
   const apps = [];
   for (const def of appDefs) {
-    const { apkUrl, checksum, sizeBytes } = await seedApk(def.objectName, def.name);
+    const { apkUrl, checksum, sizeBytes } = typeof def.realApkAsset === 'string'
+      ? await seedRealApk(def.objectName, def.realApkAsset)
+      : await seedApk(def.objectName, def.name);
     const app = await prisma.app.upsert({
       where: { packageName: def.packageName },
       update: { apkUrl, apkObjectName: def.objectName, checksum, sizeBytes, isPublished: true, visibility: def.visibility },

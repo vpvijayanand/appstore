@@ -53,6 +53,9 @@ docker-compose.override.yml
 uploads/
 apks/
 *.apk
+# Deliberate exception: small debug-signed demo payload used by backend/prisma/seed.cts
+# to give the "WL Pay Terminal" demo app a real installable APK (not a placeholder).
+!backend/prisma/demo-assets/*.apk
 
 # ─── SSL certs (never commit) ─────────────────────────────────────────────────
 nginx/certs/
