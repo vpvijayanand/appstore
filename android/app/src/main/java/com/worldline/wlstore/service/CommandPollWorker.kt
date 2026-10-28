@@ -36,5 +36,10 @@ class CommandPollWorker(context: Context, params: WorkerParameters) : CoroutineW
                 request
             )
         }
+
+        /** Stops the background poll — used on logout/unenrollment. */
+        fun cancel(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        }
     }
 }

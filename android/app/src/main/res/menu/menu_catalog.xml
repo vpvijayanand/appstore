@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_refresh"
+        android:title="Refresh"
+        android:icon="@drawable/ic_refresh"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_terminal_info"
+        android:title="Terminal Info"
+        android:icon="@drawable/ic_info"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_logout"
+        android:title="Logout"
+        android:icon="@drawable/ic_logout"
+        app:showAsAction="never" />
+
+</menu>

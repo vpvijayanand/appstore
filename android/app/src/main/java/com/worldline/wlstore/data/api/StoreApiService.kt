@@ -53,6 +53,11 @@ object ApiClient {
         apiKey = key
     }
 
+    /** Clears the in-memory API key — used on logout, before returning to enrollment. */
+    fun clearApiKey() {
+        apiKey = ""
+    }
+
     fun hasApiKey(): Boolean = apiKey.isNotBlank()
 
     /**

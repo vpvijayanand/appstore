@@ -2,13 +2,18 @@ package com.worldline.wlstore.ui.catalog
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
@@ -16,8 +21,10 @@ import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AppInfo
 import com.worldline.wlstore.data.model.CategoryWithApps
+import com.worldline.wlstore.service.CommandPollWorker
 import com.worldline.wlstore.service.InstalledAppsHelper
 import com.worldline.wlstore.service.RemoteCommandExecutor
+import com.worldline.wlstore.ui.enrollment.EnrollmentActivity
 import com.worldline.wlstore.ui.setup.DefaultAppsSetupActivity
 import kotlinx.coroutines.launch
 
@@ -72,6 +79,76 @@ class CatalogActivity : AppCompatActivity() {
         // app is actively being used, rather than waiting for the next
         // background poll (CommandPollWorker, every 15 min).
         lifecycleScope.launch { RemoteCommandExecutor.checkAndExecutePendingCommands(this@CatalogActivity) }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.menu_catalog, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_refresh -> {
+                loadCatalog()
+                true
+            }
+            R.id.action_terminal_info -> {
+                showTerminalInfo()
+                true
+            }
+            R.id.action_logout -> {
+                confirmLogout()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun showTerminalInfo() {
+        val prefs = try { getSecurePrefs() } catch (e: Exception) { null }
+        val terminalId = prefs?.getString(EnrollmentActivity.PREF_TERMINAL_ID, null) ?: "Unknown"
+        val customerId = prefs?.getString(EnrollmentActivity.PREF_CUSTOMER_ID, null) ?: "Unknown"
+
+        AlertDialog.Builder(this)
+            .setTitle("Terminal Info")
+            .setMessage("Terminal ID: $terminalId\nCustomer ID: $customerId\nModel: ${android.os.Build.MODEL}")
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun confirmLogout() {
+        AlertDialog.Builder(this)
+            .setTitle("Log out this terminal?")
+            .setMessage("This clears the enrollment stored on this device. You'll need to re-enroll (Terminal ID + Customer ID) before using the store again.")
+            .setPositiveButton("Log out") { _, _ -> performLogout() }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun performLogout() {
+        try {
+            getSecurePrefs().edit().clear().apply()
+        } catch (e: Exception) {
+            // Keystore unavailable — proceed anyway; in-memory key is cleared below.
+        }
+        CommandPollWorker.cancel(this)
+        ApiClient.clearApiKey()
+
+        val intent = Intent(this, EnrollmentActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
+    private fun getSecurePrefs(): android.content.SharedPreferences {
+        val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+        return EncryptedSharedPreferences.create(
+            "wl_store_prefs",
+            masterKeyAlias,
+            this,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 
     private fun selectTopTab(forYou: Boolean) {
