@@ -132,3 +132,24 @@ data class CompleteCommandRequest(
     val status: String,        // COMPLETED | FAILED
     val errorMessage: String? = null
 )
+
+// ── Advertisements (admin → Android: popup/screensaver promos) ──────────────
+
+data class PendingAdvertisementsResponse(
+    val advertisements: List<AdvertisementDto>
+)
+
+@Parcelize
+data class AdvertisementDto(
+    val id: String,
+    val title: String,
+    val description: String?,
+    val type: String,              // IMAGE | VIDEO | HTML
+    val displayMode: String,       // POPUP | SCREENSAVER
+    val durationSeconds: Int,
+    val startAt: String,
+    val endAt: String,
+    val htmlContent: String?,
+    val mediaUrl: String?
+) : Parcelable
+

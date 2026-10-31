@@ -43,6 +43,7 @@ model Customer {
   entitlements CustomerEntitlement[]
   terminalMasters TerminalMaster[]
   assignments AppAssignment[]
+  advertisementAssignments AdvertisementAssignment[]
 
   @@map("customers")
 }
@@ -67,6 +68,7 @@ model TerminalMaster {
   status      TerminalMasterStatus @default(ACTIVE)
   terminal    Terminal?
   assignments AppAssignment[]
+  advertisementAssignments AdvertisementAssignment[]
   createdById String?  @map("created_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -282,4 +284,62 @@ model AdminAuditLog {
   timestamp  DateTime  @default(now())
 
   @@map("admin_audit_logs")
+}
+
+// ─── Advertisements (admin → Android: popup/screensaver promos) ─────────────
+// A single creative (image/video/HTML newsletter) with its own active window
+// (startAt..endAt) and display mode, targeted at either a whole Customer or a
+// specific TerminalMaster via AdvertisementAssignment (same CUSTOMER/TERMINAL
+// scope pattern as AppAssignment, minus the DEFAULT/ON_REQUEST mode — an
+// assignment here just means "eligible to show while the schedule is active").
+
+model Advertisement {
+  id              String                   @id @default(uuid())
+  title           String
+  description     String?
+  type            AdvertisementType
+  mediaUrl        String?                  @map("media_url")
+  mediaObjectName String?                  @map("media_object_name")
+  htmlContent     String?                  @map("html_content")
+  displayMode     AdvertisementDisplayMode @default(POPUP) @map("display_mode")
+  durationSeconds Int                      @default(10) @map("duration_seconds")
+  startAt         DateTime                 @map("start_at")
+  endAt           DateTime                 @map("end_at")
+  isActive        Boolean                  @default(true) @map("is_active")
+  createdById     String?                  @map("created_by_id")
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+  assignments     AdvertisementAssignment[]
+
+  @@map("advertisements")
+}
+
+enum AdvertisementType {
+  IMAGE
+  VIDEO
+  HTML
+}
+
+enum AdvertisementDisplayMode {
+  POPUP
+  SCREENSAVER
+}
+
+model AdvertisementAssignment {
+  id               String          @id @default(uuid())
+  advertisementId  String          @map("advertisement_id")
+  advertisement    Advertisement   @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  scope            AssignmentScope
+  customerId       String?         @map("customer_id")
+  customer         Customer?       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  terminalMasterId String?         @map("terminal_master_id")
+  terminalMaster   TerminalMaster? @relation(fields: [terminalMasterId], references: [id], onDelete: Cascade)
+  createdById      String?         @map("created_by_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  @@unique([advertisementId, customerId])
+  @@unique([advertisementId, terminalMasterId])
+  @@index([customerId])
+  @@index([terminalMasterId])
+  @@map("advertisement_assignments")
 }

@@ -9,4 +9,5 @@
     <string name="catalog_empty">No apps available for your device.</string>
     <string name="install_btn">Install</string>
     <string name="installing_btn">Installing…</string>
+    <string name="ad_close">Close advertisement</string>
 </resources>

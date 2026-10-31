@@ -21,6 +21,7 @@ import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AppInfo
 import com.worldline.wlstore.data.model.CategoryWithApps
+import com.worldline.wlstore.service.AdvertisementManager
 import com.worldline.wlstore.service.CommandPollWorker
 import com.worldline.wlstore.service.InstalledAppsHelper
 import com.worldline.wlstore.service.RemoteCommandExecutor
@@ -42,6 +43,20 @@ class CatalogActivity : AppCompatActivity() {
 
     private var fullCatalog: List<CategoryWithApps> = emptyList()
     private var showForYouOnly = true
+
+    // Advertisement screensaver idle-detection + foreground popup polling.
+    private val idleHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val popupPollHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val idleRunnable = Runnable {
+        lifecycleScope.launch { AdvertisementManager.checkAndMaybeShowScreensaver(this@CatalogActivity) }
+        resetIdleTimer()
+    }
+    private val popupPollRunnable: Runnable = object : Runnable {
+        override fun run() {
+            lifecycleScope.launch { AdvertisementManager.checkAndMaybeShowPopups(this@CatalogActivity) }
+            popupPollHandler.postDelayed(this, POPUP_POLL_INTERVAL_MS)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +94,29 @@ class CatalogActivity : AppCompatActivity() {
         // app is actively being used, rather than waiting for the next
         // background poll (CommandPollWorker, every 15 min).
         lifecycleScope.launch { RemoteCommandExecutor.checkAndExecutePendingCommands(this@CatalogActivity) }
+
+        // Advertisements: show any due POPUP ad right away, then keep polling
+        // for newly-active ones while the catalog stays in the foreground, and
+        // arm the idle timer that triggers SCREENSAVER ads.
+        lifecycleScope.launch { AdvertisementManager.checkAndMaybeShowPopups(this@CatalogActivity) }
+        resetIdleTimer()
+        popupPollHandler.postDelayed(popupPollRunnable, POPUP_POLL_INTERVAL_MS)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        idleHandler.removeCallbacks(idleRunnable)
+        popupPollHandler.removeCallbacks(popupPollRunnable)
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        resetIdleTimer()
+    }
+
+    private fun resetIdleTimer() {
+        idleHandler.removeCallbacks(idleRunnable)
+        idleHandler.postDelayed(idleRunnable, AdvertisementManager.IDLE_THRESHOLD_MS)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -267,6 +305,10 @@ class CatalogActivity : AppCompatActivity() {
         tvEmpty.visibility = View.VISIBLE
         tvEmpty.text = msg
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+    }
+
+    companion object {
+        private const val POPUP_POLL_INTERVAL_MS = 2 * 60 * 1000L
     }
 }
 

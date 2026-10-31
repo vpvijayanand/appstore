@@ -129,4 +129,28 @@ export const assignmentsApi = {
   delete: (id: string) => api.delete(`/assignments/${id}`),
 };
 
+// ── Advertisements (image/video/HTML promos with a start/end schedule) ───────
+export const advertisementsApi = {
+  list: (params?: Record<string, string>) => api.get('/advertisements', { params }),
+  get: (id: string) => api.get(`/advertisements/${id}`),
+  create: (formData: FormData) =>
+    api.post('/advertisements', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+  update: (id: string, data: Record<string, unknown>) =>
+    api.patch(`/advertisements/${id}`, data),
+  delete: (id: string) => api.delete(`/advertisements/${id}`),
+};
+
+// ── Advertisement Assignments (Ad <-> Customer/Terminal mapping) ─────────────
+export const advertisementAssignmentsApi = {
+  list: (params?: Record<string, string>) => api.get('/advertisement-assignments', { params }),
+  bulk: (payload: {
+    advertisementIds: string[];
+    targets: { scope: 'CUSTOMER'; customerIds: string[] } | { scope: 'TERMINAL'; terminalMasterIds: string[] };
+    replaceExisting?: boolean;
+  }) => api.post('/advertisement-assignments/bulk', payload),
+  delete: (id: string) => api.delete(`/advertisement-assignments/${id}`),
+};
+
 export default api;

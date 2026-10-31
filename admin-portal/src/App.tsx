@@ -11,6 +11,7 @@ import DownloadsPage from './pages/DownloadsPage';
 import CategoriesPage from './pages/CategoriesPage';
 import DeviceMasterPage from './pages/DeviceMasterPage';
 import AssignmentsPage from './pages/AssignmentsPage';
+import AdvertisementsPage from './pages/AdvertisementsPage';
 import 'leaflet/dist/leaflet.css';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,7 @@ function AppRoutes() {
         <Route path="terminals" element={<TerminalsPage />} />
         <Route path="device-master" element={<DeviceMasterPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
+        <Route path="advertisements" element={<AdvertisementsPage />} />
         <Route path="map" element={<AnalyticsMapPage />} />
         <Route path="downloads" element={<DownloadsPage />} />
       </Route>

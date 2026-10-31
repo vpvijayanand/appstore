@@ -41,6 +41,10 @@ interface StoreApiService {
 
     @POST("terminal/commands/{id}/complete")
     suspend fun completeCommand(@Path("id") id: String, @Body body: CompleteCommandRequest): Response<Unit>
+
+    // Advertisements (admin -> device): image/video/HTML promos with a schedule
+    @GET("terminal/advertisements/pending")
+    suspend fun getPendingAdvertisements(): Response<PendingAdvertisementsResponse>
 }
 
 // ── Singleton Client ──────────────────────────────────────────────────────────

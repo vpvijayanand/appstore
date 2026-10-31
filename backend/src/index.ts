@@ -16,6 +16,9 @@ import categoriesRouter from './routes/categories';
 import terminalMastersRouter from './routes/terminal-masters';
 import assignmentsRouter from './routes/assignments';
 import deviceCommandsRouter from './routes/device-commands';
+import advertisementsRouter from './routes/advertisements';
+import advertisementAssignmentsRouter from './routes/advertisement-assignments';
+import advertisementsDeviceRouter from './routes/advertisements-device';
 import { initMinIO } from './services/minio';
 
 const app = express();
@@ -69,6 +72,9 @@ app.use('/api/categories', categoriesRouter); // Admin-facing
 app.use('/api/terminal-masters', terminalMastersRouter); // Admin-facing (Serial No / TID device master)
 app.use('/api/assignments', assignmentsRouter);          // Admin-facing (App <-> Customer/Terminal assignment)
 app.use('/api/terminal/commands', deviceCommandsRouter); // Terminal-facing (poll + report remote commands)
+app.use('/api/advertisements', advertisementsRouter);                       // Admin-facing (ad CRUD + upload)
+app.use('/api/advertisement-assignments', advertisementAssignmentsRouter);  // Admin-facing (ad <-> Customer/Terminal assignment)
+app.use('/api/terminal/advertisements', advertisementsDeviceRouter);        // Terminal-facing (poll active/scheduled ads)
 
 // ── 404 & Error Handler ───────────────────────────────────────────────────────
 app.use((_req, res) => {

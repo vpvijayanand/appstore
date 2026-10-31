@@ -31,5 +31,12 @@
         <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
         <item name="android:windowBackground">@color/wl_background</item>
     </style>
+    <!-- Advertisement popup/screensaver: full-screen, no action bar, no status/nav chrome -->
+    <style name="Theme.WLStore.Advertisement" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/black</item>
+        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:navigationBarColor">@color/black</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
 
 </resources>

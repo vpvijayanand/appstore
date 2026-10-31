@@ -59,6 +59,14 @@
             android:parentActivityName=".ui.catalog.CatalogActivity"
             android:exported="false" />
 
+        <!-- Full-screen popup/screensaver advertisement display -->
+        <activity
+            android:name=".ui.advertisement.AdvertisementActivity"
+            android:theme="@style/Theme.WLStore.Advertisement"
+            android:parentActivityName=".ui.catalog.CatalogActivity"
+            android:launchMode="singleTop"
+            android:exported="false" />
+
         <!-- Receives PackageInstaller session results for silent APK installs -->
         <receiver
             android:name=".service.InstallResultReceiver"
