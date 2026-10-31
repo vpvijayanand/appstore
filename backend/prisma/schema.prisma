@@ -198,6 +198,7 @@ model Terminal {
   terminalMasterId String?      @unique @map("terminal_master_id")
   terminalMaster TerminalMaster? @relation(fields: [terminalMasterId], references: [id])
   deviceCommands DeviceCommand[]
+  screenShareSessions ScreenShareSession[]
 
   @@map("terminals")
 }
@@ -227,6 +228,38 @@ model DeviceCommand {
 enum DeviceCommandType {
   RESTART_APP
   RESTART_DEVICE
+  START_SCREEN_SHARE
+  STOP_SCREEN_SHARE
+}
+
+// ─── Screen Share Sessions (remote view/control: admin ↔ Android app) ───────
+// Created by an admin to request a live view of a terminal's screen. A
+// START_SCREEN_SHARE DeviceCommand carrying this session's id is queued so
+// the terminal picks it up via the normal command-poll flow; the terminal
+// then requests on-device MediaProjection consent and connects to the WS
+// signaling endpoint (see services/signaling.ts) using this session id, where
+// it's paired 1:1 with the admin's own signaling connection to exchange
+// WebRTC SDP/ICE. Video + the remote-control data channel flow peer-to-peer
+// (optionally via TURN) after that — this table only tracks session
+// lifecycle/authorization, never the stream itself.
+model ScreenShareSession {
+  id          String             @id @default(uuid())
+  terminalId  String             @map("terminal_id")
+  terminal    Terminal           @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  status      ScreenShareStatus  @default(PENDING)
+  createdById String?            @map("created_by_id")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  connectedAt DateTime?          @map("connected_at")
+  endedAt     DateTime?          @map("ended_at")
+
+  @@index([terminalId, status])
+  @@map("screen_share_sessions")
+}
+
+enum ScreenShareStatus {
+  PENDING     // created, waiting for the device to accept MediaProjection + connect
+  ACTIVE      // both admin + device signaling sockets connected
+  ENDED       // stopped by admin, device disconnect, or error
 }
 
 enum DeviceCommandStatus {

@@ -132,3 +132,15 @@ data class CompleteCommandRequest(
     val status: String,        // COMPLETED | FAILED
     val errorMessage: String? = null
 )
+
+// ── Remote Screen Share (admin ↔ Android, WebRTC signaling bootstrap) ───────
+
+data class IceServersResponse(
+    val iceServers: List<IceServerDto>
+)
+
+data class IceServerDto(
+    val urls: List<String>,
+    val username: String? = null,
+    val credential: String? = null
+)

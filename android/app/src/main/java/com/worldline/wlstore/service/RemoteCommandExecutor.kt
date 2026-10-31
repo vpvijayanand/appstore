@@ -7,6 +7,8 @@ import android.util.Log
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.CompleteCommandRequest
 import com.worldline.wlstore.data.model.DeviceCommandDto
+import com.worldline.wlstore.screenshare.ScreenShareConsentActivity
+import com.worldline.wlstore.screenshare.ScreenShareForegroundService
 
 /**
  * Executes remote commands queued by the admin portal for this terminal
@@ -45,11 +47,33 @@ object RemoteCommandExecutor {
             "RESTART_DEVICE" -> {
                 restartDevice(context, command.id)
             }
+            "START_SCREEN_SHARE" -> {
+                startScreenShare(context, command)
+            }
+            "STOP_SCREEN_SHARE" -> {
+                ScreenShareForegroundService.stop(context)
+                reportOutcome(command.id, "COMPLETED")
+            }
             else -> {
                 Log.w(TAG, "Unsupported command type: ${command.type}")
                 reportOutcome(command.id, "FAILED", "Unsupported command type on this app version")
             }
         }
+    }
+
+    /**
+     * Launches [ScreenShareConsentActivity] to request the one-time MediaProjection
+     * "Start now" consent dialog. The command isn't reported COMPLETED/FAILED here —
+     * [ScreenShareForegroundService] reports the final outcome once the WebRTC peer
+     * connection actually reaches CONNECTED, or if consent is denied/the connection fails.
+     */
+    private suspend fun startScreenShare(context: Context, command: DeviceCommandDto) {
+        val sessionId = command.payload?.get("sessionId") as? String
+        if (sessionId == null) {
+            reportOutcome(command.id, "FAILED", "Missing sessionId in command payload")
+            return
+        }
+        ScreenShareConsentActivity.start(context, sessionId, command.id)
     }
 
     private suspend fun reportOutcome(commandId: String, status: String, errorMessage: String? = null) {

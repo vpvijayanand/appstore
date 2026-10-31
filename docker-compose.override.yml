@@ -23,3 +23,9 @@ services:
   admin-portal:
     ports:
       - "8080:80"
+
+  coturn:
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "49160-49200:49160-49200/udp"

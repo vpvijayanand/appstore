@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -102,6 +102,16 @@ export const terminalsApi = {
   sendCommand: (id: string, type: string) =>
     api.post(`/terminals/${id}/commands`, { type }),
   getCommands: (id: string) => api.get(`/terminals/${id}/commands`),
+};
+
+// ── Remote Screen Share (view/control a terminal's screen) ───────────────────
+export const screenShareApi = {
+  start: (terminalId: string) =>
+    api.post(`/terminals/${terminalId}/screen-share/sessions`),
+  getSession: (terminalId: string, sessionId: string) =>
+    api.get(`/terminals/${terminalId}/screen-share/sessions/${sessionId}`),
+  stop: (terminalId: string, sessionId: string) =>
+    api.post(`/terminals/${terminalId}/screen-share/sessions/${sessionId}/stop`),
 };
 
 // ── Terminal Masters (Serial No / TID device provisioning) ────────────────────

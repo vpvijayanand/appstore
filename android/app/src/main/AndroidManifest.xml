@@ -21,6 +21,12 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- Remote screen share (WebRTC): screen capture via MediaProjection, run
+         as a foreground service while active, and show its status notification. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -58,6 +64,35 @@
             android:theme="@style/Theme.WLStore.Catalog"
             android:parentActivityName=".ui.catalog.CatalogActivity"
             android:exported="false" />
+
+        <!-- Invisible activity that requests the one-time MediaProjection
+             screen-capture consent dialog before remote screen sharing starts. -->
+        <activity
+            android:name=".screenshare.ScreenShareConsentActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
+        <!-- Captures + publishes the screen over WebRTC while a remote screen-share
+             session is active (see docs/remote_screen_share.md). -->
+        <service
+            android:name=".screenshare.ScreenShareForegroundService"
+            android:foregroundServiceType="mediaProjection"
+            android:exported="false" />
+
+        <!-- Dispatches admin-initiated tap/swipe gestures during a remote screen-share
+             session. Must be enabled once per device under Settings > Accessibility. -->
+        <service
+            android:name=".screenshare.RemoteControlAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
 
         <!-- Receives PackageInstaller session results for silent APK installs -->
         <receiver

@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 import AppsPage from './pages/AppsPage';
 import CustomersPage from './pages/CustomersPage';
 import TerminalsPage from './pages/TerminalsPage';
+import RemoteScreenPage from './pages/RemoteScreenPage';
 import AnalyticsMapPage from './pages/AnalyticsMapPage';
 import DownloadsPage from './pages/DownloadsPage';
 import CategoriesPage from './pages/CategoriesPage';
@@ -40,6 +41,7 @@ function AppRoutes() {
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="customers" element={<CustomersPage />} />
         <Route path="terminals" element={<TerminalsPage />} />
+        <Route path="terminals/:id/screen" element={<RemoteScreenPage />} />
         <Route path="device-master" element={<DeviceMasterPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
         <Route path="map" element={<AnalyticsMapPage />} />

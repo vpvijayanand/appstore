@@ -41,6 +41,10 @@ interface StoreApiService {
 
     @POST("terminal/commands/{id}/complete")
     suspend fun completeCommand(@Path("id") id: String, @Body body: CompleteCommandRequest): Response<Unit>
+
+    // Remote screen share — STUN/TURN server list for this terminal's RTCPeerConnection
+    @GET("terminal/screen-share/ice-servers")
+    suspend fun getScreenShareIceServers(): Response<IceServersResponse>
 }
 
 // ── Singleton Client ──────────────────────────────────────────────────────────
@@ -59,6 +63,9 @@ object ApiClient {
     }
 
     fun hasApiKey(): Boolean = apiKey.isNotBlank()
+
+    /** Current in-memory terminal API key, or blank if not enrolled/loaded yet. */
+    fun getApiKey(): String = apiKey
 
     /**
      * Ensures [apiKey] is populated before making a request. Needed because this is an
