@@ -131,6 +131,38 @@ async function main() {
   ]);
   console.log('✅ Customers created:', customers.map(c => c.name).join(', '));
 
+  // ── Terminal Masters (Serial No + TID, pre-provisioned before enrollment) ──
+  // These are the credentials to type into the Android app's enrollment screen
+  // (Serial No + TID) to log a physical/emulated device into this customer.
+  const terminalMasterDefs = [
+    { id: 'tm111111-1111-1111-1111-111111111111', customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', serialNo: 'SN-RETAIL-0001', tid: 'TID-1001', model: 'PAX A920', branchCode: 'BR-100', site: 'Mumbai-Central-01' },
+    { id: 'tm222222-2222-2222-2222-222222222222', customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', serialNo: 'SN-BANK-0001', tid: 'TID-2001', model: 'Verifone P400', branchCode: 'BR-200', site: 'Delhi-Connaught-01' },
+    { id: 'tm333333-3333-3333-3333-333333333333', customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', serialNo: 'SN-LOGISTIC-0001', tid: 'TID-3001', model: 'Ingenico Desk/3500', branchCode: 'BR-300', site: 'Kolkata-Salt-Lake-01' },
+  ];
+  const terminalMasters = await Promise.all(
+    terminalMasterDefs.map(d =>
+      prisma.terminalMaster.upsert({
+        where: { serialNo: d.serialNo },
+        update: { tid: d.tid, status: 'ACTIVE' },
+        create: {
+          id: d.id,
+          tid: d.tid,
+          serialNo: d.serialNo,
+          customerId: d.customerId,
+          model: d.model,
+          branchCode: d.branchCode,
+          site: d.site,
+          status: 'ACTIVE',
+        },
+      })
+    )
+  );
+  const [tmRetail, tmBank, tmLogistic] = terminalMasters;
+  console.log('✅ Terminal masters created (Serial No / TID for Android login):');
+  for (const tm of terminalMasterDefs) {
+    console.log(`   Serial No: ${tm.serialNo}   TID: ${tm.tid}   (${tm.site})`);
+  }
+
   // ── Apps ──────────────────────────────────────────────────────────────────
   await initMinIO();
 
@@ -250,27 +282,50 @@ async function main() {
 
   // ── App Assignments (drives Android "For You" / "All Apps") ───────────────
   // mode=DEFAULT -> shows under "For You" and auto-installs; mode=ON_REQUEST -> shows under "All Apps" only.
-  const assignmentDefs: { customerId: string; appId: string; mode: 'DEFAULT' | 'ON_REQUEST' }[] = [
+  // order controls the install sequence among a target's DEFAULT apps (lower installs first).
+  const assignmentDefs: { customerId: string; appId: string; mode: 'DEFAULT' | 'ON_REQUEST'; order?: number }[] = [
     // Retailer A
-    { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app11111-1111-1111-1111-111111111111', mode: 'DEFAULT' },
-    { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app22222-2222-2222-2222-222222222222', mode: 'DEFAULT' },
+    { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app11111-1111-1111-1111-111111111111', mode: 'DEFAULT', order: 1 },
+    { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app22222-2222-2222-2222-222222222222', mode: 'DEFAULT', order: 2 },
     { customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', appId: 'app33333-3333-3333-3333-333333333333', mode: 'ON_REQUEST' },
     // Bank B
-    { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app11111-1111-1111-1111-111111111111', mode: 'DEFAULT' },
+    { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app11111-1111-1111-1111-111111111111', mode: 'DEFAULT', order: 1 },
     { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app44444-4444-4444-4444-444444444444', mode: 'ON_REQUEST' },
     { customerId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', appId: 'app55555-5555-5555-5555-555555555555', mode: 'ON_REQUEST' },
     // Logistics C
-    { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', appId: 'app33333-3333-3333-3333-333333333333', mode: 'DEFAULT' },
+    { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', appId: 'app33333-3333-3333-3333-333333333333', mode: 'DEFAULT', order: 1 },
     { customerId: 'cccccccc-cccc-cccc-cccc-cccccccccccc', appId: 'app44444-4444-4444-4444-444444444444', mode: 'ON_REQUEST' },
   ];
   for (const a of assignmentDefs) {
     await prisma.appAssignment.upsert({
       where: { appId_customerId: { appId: a.appId, customerId: a.customerId } },
-      update: { mode: a.mode },
-      create: { appId: a.appId, scope: 'CUSTOMER', customerId: a.customerId, mode: a.mode },
+      update: { mode: a.mode, order: a.order ?? 0 },
+      create: { appId: a.appId, scope: 'CUSTOMER', customerId: a.customerId, mode: a.mode, order: a.order ?? 0 },
     });
   }
-  console.log('✅ App assignments configured (For You / All Apps)');
+  console.log('✅ App assignments configured (For You / All Apps, with install order)');
+
+  // ── TERMINAL-scope App Assignments (specific Serial No/TID, not whole customer) ──
+  const terminalAssignmentDefs: { terminalMasterId: string; appId: string; mode: 'DEFAULT' | 'ON_REQUEST'; order?: number }[] = [
+    { terminalMasterId: tmRetail.id, appId: 'app44444-4444-4444-4444-444444444444', mode: 'DEFAULT', order: 3 },
+    { terminalMasterId: tmBank.id, appId: 'app55555-5555-5555-5555-555555555555', mode: 'DEFAULT', order: 2 },
+  ];
+  for (const a of terminalAssignmentDefs) {
+    await prisma.appAssignment.upsert({
+      where: { appId_terminalMasterId: { appId: a.appId, terminalMasterId: a.terminalMasterId } },
+      update: { mode: a.mode, order: a.order ?? 0 },
+      create: { appId: a.appId, scope: 'TERMINAL', terminalMasterId: a.terminalMasterId, mode: a.mode, order: a.order ?? 0 },
+    });
+  }
+  console.log('✅ Terminal-scoped app assignments configured (Serial No/TID specific)');
+
+  // ── App Settings (singleton: ad-popup interval) ───────────────────────────
+  await prisma.appSettings.upsert({
+    where: { id: 1 },
+    update: { popupIntervalHours: 6 },
+    create: { id: 1, popupIntervalHours: 6 },
+  });
+  console.log('✅ App settings configured (popup interval: 6h)');
 
   // ── Terminals ─────────────────────────────────────────────────────────────
   const terminalData = [
@@ -314,6 +369,53 @@ async function main() {
     })
   );
   console.log(`✅ ${terminals.length} terminals enrolled`);
+
+  // ── Advertisements (admin → Android: popup/screensaver promos) ───────────
+  const ad1 = await prisma.advertisement.upsert({
+    where: { id: 'ad111111-1111-1111-1111-111111111111' },
+    update: {},
+    create: {
+      id: 'ad111111-1111-1111-1111-111111111111',
+      title: 'Festive Offer — Zero MDR Weekend',
+      description: 'Popup promo shown between catalog screens.',
+      type: 'HTML',
+      htmlContent: '<html><body style="margin:0;background:#111;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;"><h1>Zero MDR this weekend!<br/>Ask your RM for details.</h1></body></html>',
+      displayMode: 'POPUP',
+      durationSeconds: 12,
+      startAt: new Date(Date.now() - 86400000),
+      endAt: new Date(Date.now() + 86400000 * 30),
+      isActive: true,
+      createdById: admin.id,
+    },
+  });
+  const ad2 = await prisma.advertisement.upsert({
+    where: { id: 'ad222222-2222-2222-2222-222222222222' },
+    update: {},
+    create: {
+      id: 'ad222222-2222-2222-2222-222222222222',
+      title: 'Security Reminder',
+      description: 'Screensaver promo shown when the terminal is idle.',
+      type: 'HTML',
+      htmlContent: '<html><body style="margin:0;background:#06281f;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;"><h1>Never share your OTP with anyone.</h1></body></html>',
+      displayMode: 'SCREENSAVER',
+      durationSeconds: 20,
+      startAt: new Date(Date.now() - 86400000),
+      endAt: new Date(Date.now() + 86400000 * 30),
+      isActive: true,
+      createdById: admin.id,
+    },
+  });
+  await prisma.advertisementAssignment.upsert({
+    where: { advertisementId_customerId: { advertisementId: ad1.id, customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } },
+    update: {},
+    create: { advertisementId: ad1.id, scope: 'CUSTOMER', customerId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', createdById: admin.id },
+  });
+  await prisma.advertisementAssignment.upsert({
+    where: { advertisementId_terminalMasterId: { advertisementId: ad2.id, terminalMasterId: tmBank.id } },
+    update: {},
+    create: { advertisementId: ad2.id, scope: 'TERMINAL', terminalMasterId: tmBank.id, createdById: admin.id },
+  });
+  console.log('✅ Advertisements created and assigned (1 customer-wide popup, 1 terminal-specific screensaver)');
 
   // ── Download Events ───────────────────────────────────────────────────────
   const appIds = ['app11111-1111-1111-1111-111111111111', 'app22222-2222-2222-2222-222222222222',
@@ -359,6 +461,10 @@ async function main() {
   });
   console.log('✅ Admin audit log seeded');
 
+  console.log('\n📱 Android login credentials (Serial No / TID):');
+  for (const tm of terminalMasterDefs) {
+    console.log(`   Serial No: ${tm.serialNo}   TID: ${tm.tid}`);
+  }
   console.log('\n🎉 Seed complete! Ready for demo.');
 }
 
