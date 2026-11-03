@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 // All catalog routes require terminal authentication
 
-type ResolvedAssignment = { mode: AssignmentMode; source: 'TERMINAL' | 'CUSTOMER' };
+type ResolvedAssignment = { mode: AssignmentMode; source: 'TERMINAL' | 'CUSTOMER'; order: number };
 
 // Resolve, for a given terminal, the full set of apps it can see and whether
 // each one is "assigned" (and via what mode), applying TERMINAL > CUSTOMER precedence.
@@ -25,16 +25,16 @@ async function resolveAppsForTerminal(customerId: string, terminalMasterId: stri
     }),
   ]);
 
-  // Build resolved-assignment map: appId -> { mode, source }, TERMINAL wins over CUSTOMER.
+  // Build resolved-assignment map: appId -> { mode, source, order }, TERMINAL wins over CUSTOMER.
   const resolved = new Map<string, ResolvedAssignment>();
   for (const a of assignments) {
     if (a.scope === 'CUSTOMER' && !resolved.has(a.appId)) {
-      resolved.set(a.appId, { mode: a.mode, source: 'CUSTOMER' });
+      resolved.set(a.appId, { mode: a.mode, source: 'CUSTOMER', order: a.order });
     }
   }
   for (const a of assignments) {
     if (a.scope === 'TERMINAL') {
-      resolved.set(a.appId, { mode: a.mode, source: 'TERMINAL' }); // always overrides
+      resolved.set(a.appId, { mode: a.mode, source: 'TERMINAL', order: a.order }); // always overrides
     }
   }
 
@@ -53,11 +53,12 @@ async function resolveAppsForTerminal(customerId: string, terminalMasterId: stri
       isAssigned: !!assignment,
       assignmentMode: assignment?.mode ?? null,
       assignmentSource: assignment?.source ?? null,
+      assignmentOrder: assignment?.order ?? 0,
     };
   });
 }
 
-function serializeApp(entry: { app: any; visibility: string; isAssigned: boolean; assignmentMode: string | null; assignmentSource: string | null }) {
+function serializeApp(entry: { app: any; visibility: string; isAssigned: boolean; assignmentMode: string | null; assignmentSource: string | null; assignmentOrder?: number }) {
   const { app } = entry;
   return {
     id: app.id,
@@ -78,6 +79,7 @@ function serializeApp(entry: { app: any; visibility: string; isAssigned: boolean
     isAssigned: entry.isAssigned,
     assignmentMode: entry.assignmentMode,
     assignmentSource: entry.assignmentSource,
+    order: entry.assignmentOrder ?? 0,
   };
 }
 
@@ -121,7 +123,10 @@ router.get('/default-apps', requireTerminal, async (req: Request, res: Response)
   try {
     const { customerId, terminalMasterId } = req.terminal!;
     const resolvedApps = await resolveAppsForTerminal(customerId, terminalMasterId);
-    const defaults = resolvedApps.filter((e) => e.assignmentMode === 'DEFAULT').map(serializeApp);
+    const defaults = resolvedApps
+      .filter((e) => e.assignmentMode === 'DEFAULT')
+      .sort((a, b) => (a.assignmentOrder ?? 0) - (b.assignmentOrder ?? 0))
+      .map(serializeApp);
     return res.json({ apps: defaults, count: defaults.length });
   } catch (e) {
     console.error(e);

@@ -16,20 +16,23 @@ router.get('/pending', requireTerminal, async (req: Request, res: Response) => {
     const { customerId, terminalMasterId } = req.terminal!;
     const now = new Date();
 
-    const assignments = await prisma.advertisementAssignment.findMany({
-      where: {
-        OR: [
-          { scope: 'CUSTOMER', customerId },
-          ...(terminalMasterId ? [{ scope: 'TERMINAL' as const, terminalMasterId }] : []),
-        ],
-        advertisement: {
-          isActive: true,
-          startAt: { lte: now },
-          endAt: { gte: now },
+    const [assignments, settings] = await Promise.all([
+      prisma.advertisementAssignment.findMany({
+        where: {
+          OR: [
+            { scope: 'CUSTOMER', customerId },
+            ...(terminalMasterId ? [{ scope: 'TERMINAL' as const, terminalMasterId }] : []),
+          ],
+          advertisement: {
+            isActive: true,
+            startAt: { lte: now },
+            endAt: { gte: now },
+          },
         },
-      },
-      include: { advertisement: true },
-    });
+        include: { advertisement: true },
+      }),
+      prisma.appSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } }),
+    ]);
 
     // Dedupe (a terminal can match both a CUSTOMER and TERMINAL assignment for the same ad)
     const seen = new Map<string, (typeof assignments)[number]['advertisement']>();
@@ -50,7 +53,7 @@ router.get('/pending', requireTerminal, async (req: Request, res: Response) => {
       }))
     );
 
-    return res.json({ advertisements });
+    return res.json({ advertisements, popupIntervalHours: settings.popupIntervalHours });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: 'Failed to resolve advertisements' });

@@ -12,23 +12,27 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
-import com.worldline.wlstore.data.model.EnrollmentRequest
+import com.worldline.wlstore.data.model.EnrollBySerialRequest
 import com.worldline.wlstore.service.CommandPollWorker
 import com.worldline.wlstore.ui.catalog.CatalogActivity
 import com.worldline.wlstore.ui.setup.DefaultAppsSetupActivity
 import kotlinx.coroutines.launch
 
 /**
- * First-launch enrollment screen.
- * On subsequent launches, reads the stored API key and navigates directly to the catalog.
+ * First-launch login screen for the customer Android app.
  *
- * Stores Terminal ID + API key in EncryptedSharedPreferences (AES256 + API 23+).
+ * The device identifies itself purely by the Serial Number + TID that an admin
+ * has already pre-registered in the Device Master page (admin portal) — there
+ * is no free-text Customer ID entry; the customer/site is resolved server-side
+ * from the Serial No + TID mapping.
+ *
+ * On subsequent launches, reads the stored API key and navigates directly to the catalog.
+ * Stores Serial No / TID / API key in EncryptedSharedPreferences (AES256 + API 23+).
  */
 class EnrollmentActivity : AppCompatActivity() {
 
-    private lateinit var etTerminalId: EditText
-    private lateinit var etCustomerId: EditText
-    private lateinit var etSite: EditText
+    private lateinit var etSerialNo: EditText
+    private lateinit var etTid: EditText
     private lateinit var btnEnroll: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var tvStatus: TextView
@@ -55,43 +59,34 @@ class EnrollmentActivity : AppCompatActivity() {
         }
 
         setContentView(R.layout.activity_enrollment)
-        etTerminalId = findViewById(R.id.et_terminal_id)
-        etCustomerId = findViewById(R.id.et_customer_id)
-        etSite = findViewById(R.id.et_site)
+        etSerialNo = findViewById(R.id.et_serial_no)
+        etTid = findViewById(R.id.et_tid)
         btnEnroll = findViewById(R.id.btn_enroll)
         progressBar = findViewById(R.id.progress_bar)
         tvStatus = findViewById(R.id.tv_status)
-
-        // Pre-fill terminal ID with device model + Android ID
-        val androidId = android.provider.Settings.Secure.getString(
-            contentResolver, android.provider.Settings.Secure.ANDROID_ID
-        )
-        etTerminalId.setText("WL-TRM-$androidId".uppercase().take(20))
 
         btnEnroll.setOnClickListener { startEnrollment() }
     }
 
     private fun startEnrollment() {
-        val terminalId = etTerminalId.text.toString().trim()
-        val customerId = etCustomerId.text.toString().trim()
-        val site = etSite.text.toString().trim()
+        val serialNo = etSerialNo.text.toString().trim()
+        val tid = etTid.text.toString().trim()
 
-        if (terminalId.isEmpty() || customerId.isEmpty()) {
-            Toast.makeText(this, "Terminal ID and Customer ID are required", Toast.LENGTH_SHORT).show()
+        if (serialNo.isEmpty() || tid.isEmpty()) {
+            Toast.makeText(this, "Serial Number and TID are required", Toast.LENGTH_SHORT).show()
             return
         }
 
         btnEnroll.isEnabled = false
         progressBar.visibility = View.VISIBLE
-        tvStatus.text = "Enrolling terminal..."
+        tvStatus.text = "Logging in..."
 
         lifecycleScope.launch {
             try {
-                val response = ApiClient.service.enrollTerminal(
-                    EnrollmentRequest(
-                        terminalId = terminalId,
-                        customerId = customerId,
-                        site = site.ifEmpty { null },
+                val response = ApiClient.service.enrollBySerial(
+                    EnrollBySerialRequest(
+                        serialNo = serialNo,
+                        tid = tid,
                         model = android.os.Build.MODEL,
                     )
                 )
@@ -105,6 +100,9 @@ class EnrollmentActivity : AppCompatActivity() {
                             .putString(PREF_API_KEY, data.apiKey)
                             .putString(PREF_TERMINAL_ID, data.terminalId)
                             .putString(PREF_CUSTOMER_ID, data.customerId)
+                            .putString(PREF_SERIAL_NO, data.serialNo)
+                            .putString(PREF_TID, data.tid)
+                            .putString(PREF_CUSTOMER_NAME, data.customerName)
                             .apply()
                     } catch (e: Exception) {
                         Log.e("WLStore", "Could not save API key to EncryptedSharedPreferences: ${e.message}")
@@ -113,11 +111,11 @@ class EnrollmentActivity : AppCompatActivity() {
 
                     ApiClient.setApiKey(data.apiKey)
                     CommandPollWorker.schedule(this@EnrollmentActivity)
-                    tvStatus.text = "✅ Enrolled! Launching store..."
+                    tvStatus.text = "✅ Logged in! Launching store..."
                     navigateAfterEnrollment()
                 } else {
                     val error = response.errorBody()?.string() ?: "Unknown error"
-                    tvStatus.text = "❌ Enrollment failed: $error"
+                    tvStatus.text = "❌ Login failed: $error"
                     btnEnroll.isEnabled = true
                 }
             } catch (e: Exception) {
@@ -179,5 +177,8 @@ class EnrollmentActivity : AppCompatActivity() {
         const val PREF_API_KEY = "api_key"
         const val PREF_TERMINAL_ID = "terminal_id"
         const val PREF_CUSTOMER_ID = "customer_id"
+        const val PREF_SERIAL_NO = "serial_no"
+        const val PREF_TID = "tid"
+        const val PREF_CUSTOMER_NAME = "customer_name"
     }
 }

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { advertisementsApi, advertisementAssignmentsApi, customersApi, terminalMastersApi } from '../api';
+import { advertisementsApi, advertisementAssignmentsApi, customersApi, terminalMastersApi, settingsApi } from '../api';
 import {
   Megaphone, Plus, Trash2, Loader2, CheckCircle, XCircle, Image as ImageIcon,
-  Video, FileCode, Users, HardDrive, Share2, Clock,
+  Video, FileCode, Users, HardDrive, Share2, Clock, Settings as SettingsIcon,
 } from 'lucide-react';
 
 interface Advertisement {
@@ -70,18 +70,36 @@ export default function AdvertisementsPage() {
   const [targetIds, setTargetIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Global popup-interval setting (minimum gap between popups on the device,
+  // regardless of which ad is shown — configurable instead of hardcoded).
+  const [popupIntervalHours, setPopupIntervalHours] = useState<number | ''>('');
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const load = () => {
     setLoading(true);
-    Promise.all([advertisementsApi.list(), customersApi.list(), terminalMastersApi.list()])
-      .then(([adRes, cRes, mRes]) => {
+    Promise.all([advertisementsApi.list(), customersApi.list(), terminalMastersApi.list(), settingsApi.get()])
+      .then(([adRes, cRes, mRes, sRes]) => {
         setAds(adRes.data.advertisements);
         setCustomers(cRes.data.customers);
         setMasters(mRes.data.terminalMasters);
+        setPopupIntervalHours(sRes.data.settings.popupIntervalHours);
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
+
+  const saveSettings = async () => {
+    if (popupIntervalHours === '' || popupIntervalHours < 0) return;
+    setSavingSettings(true);
+    try {
+      await settingsApi.update({ popupIntervalHours: Number(popupIntervalHours) });
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to save setting');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const resetForm = () => {
     setForm({
@@ -169,6 +187,29 @@ export default function AdvertisementsPage() {
         </div>
         <button className="btn btn-primary" onClick={openCreateModal}>
           <Plus size={16} /> New Advertisement
+        </button>
+      </div>
+
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 18px', marginBottom: '20px',
+        background: 'var(--bg-surface)', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)',
+      }}>
+        <SettingsIcon size={16} color="var(--text-muted)" />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, fontSize: '13.5px' }}>Popup frequency (all terminals)</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            Minimum gap, in hours, before the same device shows another advertisement popup after a screen change.
+          </div>
+        </div>
+        <input
+          type="number" min={0} step={0.5}
+          className="form-input" style={{ width: '90px' }}
+          value={popupIntervalHours}
+          onChange={e => setPopupIntervalHours(e.target.value === '' ? '' : Number(e.target.value))}
+        />
+        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>hours</span>
+        <button className="btn btn-secondary btn-sm" onClick={saveSettings} disabled={savingSettings}>
+          {savingSettings ? <Loader2 size={13} className="spinner" /> : <CheckCircle size={13} />} Save
         </button>
       </div>
 

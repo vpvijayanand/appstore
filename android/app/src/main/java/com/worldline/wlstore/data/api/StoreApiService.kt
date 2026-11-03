@@ -32,6 +32,10 @@ interface StoreApiService {
     @POST("auth/terminal/enroll")
     suspend fun enrollTerminal(@Body request: EnrollmentRequest): Response<EnrollmentResponse>
 
+    // Auth — login by Serial No + TID (the actual first-screen flow of the app)
+    @POST("auth/terminal/enroll-by-serial")
+    suspend fun enrollBySerial(@Body request: EnrollBySerialRequest): Response<EnrollBySerialResponse>
+
     @POST("auth/terminal/verify")
     suspend fun verifyTerminal(): Response<VerifyResponse>
 

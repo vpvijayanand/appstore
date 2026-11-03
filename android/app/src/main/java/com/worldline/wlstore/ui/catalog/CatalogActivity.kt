@@ -144,12 +144,13 @@ class CatalogActivity : AppCompatActivity() {
 
     private fun showTerminalInfo() {
         val prefs = try { getSecurePrefs() } catch (e: Exception) { null }
-        val terminalId = prefs?.getString(EnrollmentActivity.PREF_TERMINAL_ID, null) ?: "Unknown"
-        val customerId = prefs?.getString(EnrollmentActivity.PREF_CUSTOMER_ID, null) ?: "Unknown"
+        val serialNo = prefs?.getString(EnrollmentActivity.PREF_SERIAL_NO, null) ?: "Unknown"
+        val tid = prefs?.getString(EnrollmentActivity.PREF_TID, null) ?: "Unknown"
+        val customerName = prefs?.getString(EnrollmentActivity.PREF_CUSTOMER_NAME, null) ?: "Unknown"
 
         AlertDialog.Builder(this)
             .setTitle("Terminal Info")
-            .setMessage("Terminal ID: $terminalId\nCustomer ID: $customerId\nModel: ${android.os.Build.MODEL}")
+            .setMessage("Serial No: $serialNo\nTID: $tid\nCustomer: $customerName\nModel: ${android.os.Build.MODEL}")
             .setPositiveButton("OK", null)
             .show()
     }
@@ -157,7 +158,7 @@ class CatalogActivity : AppCompatActivity() {
     private fun confirmLogout() {
         AlertDialog.Builder(this)
             .setTitle("Log out this terminal?")
-            .setMessage("This clears the enrollment stored on this device. You'll need to re-enroll (Terminal ID + Customer ID) before using the store again.")
+            .setMessage("This clears the enrollment stored on this device. You'll need to log in again (Serial Number + TID) before using the store again.")
             .setPositiveButton("Log out") { _, _ -> performLogout() }
             .setNegativeButton("Cancel", null)
             .show()

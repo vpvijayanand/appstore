@@ -39,11 +39,15 @@ const bulkSchema = z.object({
   ]),
   mode: z.nativeEnum(AssignmentMode).default(AssignmentMode.ON_REQUEST),
   replaceExisting: z.boolean().optional().default(false),
+  // Only meaningful when mode=DEFAULT: appId -> install/download sequence
+  // number (1, 2, 3…), so the Android client can auto-install defaults in
+  // the order the admin configured ("Default 1", "Default 2", …).
+  orders: z.record(z.string(), z.number().int().min(0)).optional(),
 });
 
 router.post('/bulk', requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { appIds, targets, mode, replaceExisting } = bulkSchema.parse(req.body);
+    const { appIds, targets, mode, replaceExisting, orders } = bulkSchema.parse(req.body);
     const scope: AssignmentScope = targets.scope === 'CUSTOMER' ? AssignmentScope.CUSTOMER : AssignmentScope.TERMINAL;
     const targetIds = targets.scope === 'CUSTOMER' ? targets.customerIds : targets.terminalMasterIds;
 
@@ -67,11 +71,12 @@ router.post('/bulk', requireAdmin, async (req: Request, res: Response) => {
         const uniqueWhere = scope === AssignmentScope.CUSTOMER
           ? { appId_customerId: { appId, customerId: targetId } }
           : { appId_terminalMasterId: { appId, terminalMasterId: targetId } };
+        const order = orders?.[appId] ?? 0;
 
         const existing = await (prisma.appAssignment as any).findUnique({ where: uniqueWhere });
         if (existing) {
-          if (existing.mode !== mode) {
-            await (prisma.appAssignment as any).update({ where: uniqueWhere, data: { mode } });
+          if (existing.mode !== mode || existing.order !== order) {
+            await (prisma.appAssignment as any).update({ where: uniqueWhere, data: { mode, order } });
             updated++;
           }
         } else {
@@ -80,6 +85,7 @@ router.post('/bulk', requireAdmin, async (req: Request, res: Response) => {
               appId,
               scope,
               mode,
+              order,
               grantedById: req.admin!.adminId,
               ...whereTarget,
             },
@@ -95,7 +101,7 @@ router.post('/bulk', requireAdmin, async (req: Request, res: Response) => {
         action: 'BULK_ASSIGN_APPS',
         entityType: 'AppAssignment',
         entityId: 'bulk',
-        details: { appIds, targets, mode, replaceExisting, created, updated, removed },
+        details: { appIds, targets, mode, replaceExisting, orders, created, updated, removed },
       },
     });
 
@@ -104,6 +110,24 @@ router.post('/bulk', requireAdmin, async (req: Request, res: Response) => {
     if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
     console.error(e);
     return res.status(500).json({ error: 'Bulk assignment failed' });
+  }
+});
+
+// ── Update a single assignment's default order ────────────────────────────────
+const updateSchema = z.object({ order: z.number().int().min(0) });
+
+router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { order } = updateSchema.parse(req.body);
+    const assignment = await prisma.appAssignment.update({ where: { id: req.params.id }, data: { order } });
+    await prisma.adminAuditLog.create({
+      data: { adminId: req.admin!.adminId, action: 'UPDATE_ASSIGNMENT_ORDER', entityType: 'AppAssignment', entityId: assignment.id, details: { order } },
+    });
+    return res.json({ assignment });
+  } catch (e) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
+    console.error(e);
+    return res.status(500).json({ error: 'Update failed' });
   }
 });
 

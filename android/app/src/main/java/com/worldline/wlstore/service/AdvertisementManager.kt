@@ -5,65 +5,72 @@ import android.content.Intent
 import android.util.Log
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AdvertisementDto
+import com.worldline.wlstore.data.model.PendingAdvertisementsResponse
 import com.worldline.wlstore.ui.advertisement.AdvertisementActivity
 
 /**
  * Fetches currently-active advertisements (see GET /terminal/advertisements/pending)
- * and decides when to show them on top of CatalogActivity:
- *   - POPUP ads: shown on every app resume / foreground poll, but throttled per-ad
- *     so the same promo doesn't reappear every couple of minutes.
+ * and decides when to show them on top of CatalogActivity (and any other foreground
+ * screen — see WLStoreApplication's ActivityLifecycleCallbacks):
+ *   - POPUP ads: shown on screen changes (any activity resuming), throttled by a
+ *     single GLOBAL cooldown — not per-ad — so popups appear at most once per
+ *     `popupIntervalHours` (admin-configurable; defaults to 4 hours if the backend
+ *     doesn't return a value).
  *   - SCREENSAVER ads: shown only when CatalogActivity reports the device has been
  *     idle (no touch interaction) for IDLE_THRESHOLD_MS.
- * Kept entirely foreground-triggered (called from CatalogActivity) rather than from
- * a background WorkManager job, since Android 10+ blocks starting Activities from
- * background services/workers without special exemptions.
+ * Kept entirely foreground-triggered (called from activity lifecycle callbacks)
+ * rather than from a background WorkManager job, since Android 10+ blocks starting
+ * Activities from background services/workers without special exemptions.
  */
 object AdvertisementManager {
 
     private const val TAG = "WLStore-Ads"
     private const val PREFS_NAME = "wl_store_ads_prefs"
-    private const val KEY_LAST_SHOWN_PREFIX = "last_shown_"
-    private const val POPUP_COOLDOWN_MS = 30 * 60 * 1000L // don't reshow the same popup more than once per 30 min
+    private const val KEY_LAST_SHOWN_GLOBAL = "last_shown_global"
+    private const val DEFAULT_POPUP_INTERVAL_HOURS = 4
 
     /** How long CatalogActivity should wait with no touch interaction before treating the device as idle. */
     const val IDLE_THRESHOLD_MS = 60_000L
 
     suspend fun checkAndMaybeShowPopups(context: Context) {
-        val ads = fetchPending(context) ?: return
-        val due = ads.filter { it.displayMode == "POPUP" && isCooldownElapsed(context, it.id) }
+        val pending = fetchPending(context) ?: return
+        val due = pending.advertisements.filter { it.displayMode == "POPUP" }
         if (due.isEmpty()) return
-        due.forEach { markShown(context, it.id) }
+        if (!isCooldownElapsed(context, pending.popupIntervalHours)) return
+        markShownGlobal(context)
         launch(context, due)
     }
 
     suspend fun checkAndMaybeShowScreensaver(context: Context) {
-        val ads = fetchPending(context) ?: return
-        val due = ads.filter { it.displayMode == "SCREENSAVER" }
+        val pending = fetchPending(context) ?: return
+        val due = pending.advertisements.filter { it.displayMode == "SCREENSAVER" }
         if (due.isEmpty()) return
         launch(context, due)
     }
 
-    private suspend fun fetchPending(context: Context): List<AdvertisementDto>? {
+    private suspend fun fetchPending(context: Context): PendingAdvertisementsResponse? {
         ApiClient.ensureApiKeyLoaded(context)
         if (!ApiClient.hasApiKey()) return null
         return try {
             val response = ApiClient.service.getPendingAdvertisements()
-            if (!response.isSuccessful) null else response.body()?.advertisements
+            if (!response.isSuccessful) null else response.body()
         } catch (e: Exception) {
             Log.w(TAG, "Failed to poll advertisements: ${e.message}")
             null
         }
     }
 
-    private fun isCooldownElapsed(context: Context, adId: String): Boolean {
+    /** Global popup cooldown — at most one popup across ALL ads per `intervalHours`. */
+    private fun isCooldownElapsed(context: Context, intervalHours: Int): Boolean {
+        val hours = if (intervalHours > 0) intervalHours else DEFAULT_POPUP_INTERVAL_HOURS
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val lastShown = prefs.getLong(KEY_LAST_SHOWN_PREFIX + adId, 0L)
-        return System.currentTimeMillis() - lastShown > POPUP_COOLDOWN_MS
+        val lastShown = prefs.getLong(KEY_LAST_SHOWN_GLOBAL, 0L)
+        return System.currentTimeMillis() - lastShown > hours * 60 * 60 * 1000L
     }
 
-    private fun markShown(context: Context, adId: String) {
+    private fun markShownGlobal(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putLong(KEY_LAST_SHOWN_PREFIX + adId, System.currentTimeMillis()).apply()
+        prefs.edit().putLong(KEY_LAST_SHOWN_GLOBAL, System.currentTimeMillis()).apply()
     }
 
     private fun launch(context: Context, ads: List<AdvertisementDto>) {

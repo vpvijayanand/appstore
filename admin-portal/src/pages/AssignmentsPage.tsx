@@ -13,6 +13,7 @@ interface Assignment {
   id: string;
   scope: 'CUSTOMER' | 'TERMINAL';
   mode: 'DEFAULT' | 'ON_REQUEST';
+  order: number;
   grantedAt: string;
   app: { id: string; name: string };
   customer: { id: string; name: string; code: string } | null;
@@ -35,9 +36,11 @@ export default function AssignmentsPage() {
   const [targetIds, setTargetIds] = useState<string[]>([]);
   const [appIds, setAppIds] = useState<string[]>([]);
   const [mode, setMode] = useState<'DEFAULT' | 'ON_REQUEST'>('ON_REQUEST');
+  const [order, setOrder] = useState<Record<string, number>>({});
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [orderSaving, setOrderSaving] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -55,7 +58,7 @@ export default function AssignmentsPage() {
 
   const resetWizard = () => {
     setStep(1); setScope('CUSTOMER'); setTargetIds([]); setAppIds([]);
-    setMode('ON_REQUEST'); setReplaceExisting(false); setResult(null);
+    setMode('ON_REQUEST'); setReplaceExisting(false); setResult(null); setOrder({});
   };
 
   const openWizard = () => { resetWizard(); setShowWizard(true); };
@@ -64,13 +67,25 @@ export default function AssignmentsPage() {
     set(list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
   };
 
+  const toggleApp = (id: string) => {
+    if (appIds.includes(id)) {
+      setAppIds(appIds.filter(x => x !== id));
+    } else {
+      setAppIds([...appIds, id]);
+      setOrder(o => (o[id] ? o : { ...o, [id]: appIds.length + 1 }));
+    }
+  };
+
   const submit = async () => {
     setSubmitting(true);
     try {
       const targets = scope === 'CUSTOMER'
         ? { scope: 'CUSTOMER' as const, customerIds: targetIds }
         : { scope: 'TERMINAL' as const, terminalMasterIds: targetIds };
-      const res = await assignmentsApi.bulk({ appIds, targets, mode, replaceExisting });
+      const res = await assignmentsApi.bulk({
+        appIds, targets, mode, replaceExisting,
+        orders: mode === 'DEFAULT' ? order : undefined,
+      });
       setResult(res.data);
       load();
     } catch (e: any) {
@@ -84,6 +99,18 @@ export default function AssignmentsPage() {
     if (!confirm(`Remove assignment of "${a.app.name}"?`)) return;
     await assignmentsApi.delete(a.id);
     load();
+  };
+
+  const saveOrder = async (a: Assignment, value: number) => {
+    setOrderSaving(a.id);
+    try {
+      await assignmentsApi.updateOrder(a.id, value);
+      setAssignments(list => list.map(x => x.id === a.id ? { ...x, order: value } : x));
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to update order');
+    } finally {
+      setOrderSaving(null);
+    }
   };
 
   const canNext = (
@@ -117,6 +144,7 @@ export default function AssignmentsPage() {
                 <th>Scope</th>
                 <th>Target</th>
                 <th>Mode</th>
+                <th>Default Order</th>
                 <th>Granted</th>
                 <th>Actions</th>
               </tr>
@@ -140,6 +168,20 @@ export default function AssignmentsPage() {
                       ? <span className="badge badge-success"><Star size={11} /> Default</span>
                       : <span className="badge badge-default"><Clock size={11} /> On Request</span>}
                   </td>
+                  <td>
+                    {a.mode === 'DEFAULT' ? (
+                      <input
+                        type="number" min={0} defaultValue={a.order}
+                        disabled={orderSaving === a.id}
+                        onBlur={e => {
+                          const v = parseInt(e.target.value, 10) || 0;
+                          if (v !== a.order) saveOrder(a, v);
+                        }}
+                        className="form-input" style={{ width: '70px', padding: '4px 8px', fontSize: '12px' }}
+                        title="Install sequence among this target's default apps (e.g. 1, 2, 3…)"
+                      />
+                    ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                  </td>
                   <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{new Date(a.grantedAt).toLocaleDateString()}</td>
                   <td>
                     <button className="btn btn-danger btn-sm btn-icon" onClick={() => removeAssignment(a)} title="Remove">
@@ -150,7 +192,7 @@ export default function AssignmentsPage() {
               ))}
               {assignments.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                     <Share2 size={40} style={{ marginBottom: '12px', opacity: 0.3 }} />
                     <div>No assignments yet. Click "Bulk Assign Apps" to get started.</div>
                   </td>
@@ -233,7 +275,7 @@ export default function AssignmentsPage() {
                       borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
                       border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
                     }}>
-                      <input type="checkbox" checked={checked} onChange={() => toggle(appIds, setAppIds, app.id)}
+                    <input type="checkbox" checked={checked} onChange={() => toggleApp(app.id)}
                         style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
                       <span>{app.name}</span>
                       {checked && <CheckCircle size={15} color="var(--brand-primary)" style={{ marginLeft: 'auto' }} />}
@@ -275,6 +317,30 @@ export default function AssignmentsPage() {
                     style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
                   Replace existing assignments for selected targets (remove apps not in this selection)
                 </label>
+                {mode === 'DEFAULT' && (
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '8px' }}>Install order</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                      Default apps auto-install on the device in this order (1 first, then 2, 3…).
+                    </div>
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                      {appIds.map(id => {
+                        const app = apps.find(a => a.id === id);
+                        return (
+                          <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)' }}>
+                            <span style={{ flex: 1 }}>{app?.name}</span>
+                            <input
+                              type="number" min={1}
+                              value={order[id] ?? 1}
+                              onChange={e => setOrder(o => ({ ...o, [id]: parseInt(e.target.value, 10) || 1 }))}
+                              className="form-input" style={{ width: '70px', padding: '4px 8px', fontSize: '12px' }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

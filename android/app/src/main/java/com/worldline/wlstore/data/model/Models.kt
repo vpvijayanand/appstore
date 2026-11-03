@@ -102,6 +102,26 @@ data class EnrollmentResponse(
     val message: String
 )
 
+// ── Login by Serial No + TID (customer Android app entry point) ─────────────
+// This is the flow actually used by EnrollmentActivity: the device only ever
+// asks for its Serial No + TID (both pre-provisioned/mapped by an admin in
+// the Device Master page) — never a free-text Customer ID.
+data class EnrollBySerialRequest(
+    val serialNo: String,
+    val tid: String,
+    val model: String? = null
+)
+
+data class EnrollBySerialResponse(
+    val terminalId: String,
+    val apiKey: String,
+    val customerId: String,
+    val serialNo: String,
+    val tid: String?,
+    val customerName: String,
+    val message: String
+)
+
 data class VerifyResponse(
     val terminalId: String,
     val customer: CustomerInfo,
@@ -136,7 +156,8 @@ data class CompleteCommandRequest(
 // ── Advertisements (admin → Android: popup/screensaver promos) ──────────────
 
 data class PendingAdvertisementsResponse(
-    val advertisements: List<AdvertisementDto>
+    val advertisements: List<AdvertisementDto>,
+    val popupIntervalHours: Int = 4
 )
 
 @Parcelize

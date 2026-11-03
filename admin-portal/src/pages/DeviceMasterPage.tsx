@@ -2,11 +2,29 @@ import { useEffect, useState } from 'react';
 import { terminalMastersApi, customersApi } from '../api';
 import {
   HardDrive, Plus, Trash2, Loader2, FileSpreadsheet, UploadCloud,
-  CheckCircle, XCircle, Search, Link2,
+  CheckCircle, XCircle, Search, Link2, Download, RefreshCw,
 } from 'lucide-react';
 import { exportToExcel } from '../utils/exportExcel';
 
 interface Customer { id: string; name: string; code: string; }
+
+interface DownloadAppStatus {
+  appId: string;
+  name: string;
+  iconUrl: string | null;
+  order: number;
+  source: string;
+  status: string;
+  timestamp: string | null;
+}
+
+interface DownloadsProgress {
+  serialNo: string;
+  tid: string | null;
+  enrolled: boolean;
+  apps: DownloadAppStatus[];
+  summary: { total: number; completed: number; failed: number; currentlyDownloading: string | null; nextInQueue: string | null };
+}
 
 interface TerminalMaster {
   id: string;
@@ -35,6 +53,9 @@ export default function DeviceMasterPage() {
   const [bulkResult, setBulkResult] = useState<any>(null);
   const [mapTidFor, setMapTidFor] = useState<TerminalMaster | null>(null);
   const [mapTidValue, setMapTidValue] = useState('');
+  const [downloadsFor, setDownloadsFor] = useState<TerminalMaster | null>(null);
+  const [downloadsProgress, setDownloadsProgress] = useState<DownloadsProgress | null>(null);
+  const [downloadsLoading, setDownloadsLoading] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -121,6 +142,23 @@ export default function DeviceMasterPage() {
       alert(e.response?.data?.error || 'Mapping failed');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const openDownloads = (m: TerminalMaster) => {
+    setDownloadsFor(m);
+    loadDownloads(m);
+  };
+
+  const loadDownloads = async (m: TerminalMaster) => {
+    setDownloadsLoading(true);
+    try {
+      const res = await terminalMastersApi.getDownloads(m.id);
+      setDownloadsProgress(res.data);
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to load download progress');
+    } finally {
+      setDownloadsLoading(false);
     }
   };
 
@@ -231,6 +269,9 @@ export default function DeviceMasterPage() {
                           <Link2 size={13} />
                         </button>
                       )}
+                      <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openDownloads(m)} title="View download progress">
+                        <Download size={13} />
+                      </button>
                       <button className="btn btn-danger btn-sm btn-icon" onClick={() => deleteMaster(m)} title="Delete">
                         <Trash2 size={13} />
                       </button>
@@ -378,6 +419,79 @@ export default function DeviceMasterPage() {
           </div>
         </div>
       )}
+
+      {/* Downloads Progress Modal */}
+      {downloadsFor && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setDownloadsFor(null)}>
+          <div className="modal" style={{ width: '560px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">
+                Download Progress — <span style={{ fontFamily: 'var(--font-mono)' }}>{downloadsFor.serialNo}</span>
+              </h3>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setDownloadsFor(null)}>✕</button>
+            </div>
+
+            {downloadsLoading && !downloadsProgress ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                <Loader2 size={28} className="spinner" color="var(--text-muted)" />
+              </div>
+            ) : downloadsProgress && (
+              <div style={{ display: 'grid', gap: '14px' }}>
+                {!downloadsProgress.enrolled && (
+                  <div style={{ padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', fontSize: '13px', color: 'var(--text-muted)' }}>
+                    This device hasn't enrolled yet — no downloads can start until the Android app logs in with this Serial No / TID.
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <span className="badge badge-info">{downloadsProgress.summary.completed} / {downloadsProgress.summary.total} installed</span>
+                  {downloadsProgress.summary.failed > 0 && <span className="badge badge-error">{downloadsProgress.summary.failed} failed</span>}
+                  {downloadsProgress.summary.currentlyDownloading && (
+                    <span className="badge badge-warning">Downloading: {downloadsProgress.summary.currentlyDownloading}</span>
+                  )}
+                  {!downloadsProgress.summary.currentlyDownloading && downloadsProgress.summary.nextInQueue && (
+                    <span className="badge badge-default">Next up: {downloadsProgress.summary.nextInQueue}</span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>
+                  {downloadsProgress.apps.map(a => (
+                    <div key={a.appId} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                      borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)',
+                    }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', width: '20px' }}>#{a.order}</span>
+                      <span style={{ flex: 1, fontWeight: 600 }}>{a.name}</span>
+                      <StatusBadge status={a.status} />
+                    </div>
+                  ))}
+                  {downloadsProgress.apps.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                      No default apps are assigned to this device yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '18px' }}>
+              <button className="btn btn-secondary" onClick={() => loadDownloads(downloadsFor)} disabled={downloadsLoading}>
+                <RefreshCw size={14} className={downloadsLoading ? 'spinner' : ''} /> Refresh
+              </button>
+              <button className="btn btn-primary" onClick={() => setDownloadsFor(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'SUCCESS': return <span className="badge badge-success"><CheckCircle size={11} /> Installed</span>;
+    case 'FAILED': return <span className="badge badge-error"><XCircle size={11} /> Failed</span>;
+    case 'DOWNLOADING': return <span className="badge badge-warning">Downloading…</span>;
+    case 'PENDING': return <span className="badge badge-info">Queued</span>;
+    default: return <span className="badge badge-default">Not started</span>;
+  }
 }

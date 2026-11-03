@@ -96,6 +96,9 @@ model AppAssignment {
   terminalMasterId String?  @map("terminal_master_id")
   terminalMaster   TerminalMaster? @relation(fields: [terminalMasterId], references: [id], onDelete: Cascade)
   mode             AssignmentMode @default(ON_REQUEST)
+  // Download/install sequence among this target's DEFAULT apps (1, 2, 3…).
+  // Ignored for ON_REQUEST assignments. Lower numbers install first.
+  order            Int      @default(0)
   grantedAt        DateTime @default(now()) @map("granted_at")
   grantedById      String?  @map("granted_by_id")
 
@@ -312,6 +315,19 @@ model Advertisement {
   assignments     AdvertisementAssignment[]
 
   @@map("advertisements")
+}
+
+// ─── App Settings (singleton: global device-behavior config) ────────────────
+// Single-row table (id is always 1) holding settings that apply to every
+// terminal, editable from the admin portal. Currently just the minimum gap
+// between advertisement popups shown on the Android app (any screen change),
+// but kept generic so more global knobs can be added without a new table.
+model AppSettings {
+  id                 Int      @id @default(1)
+  popupIntervalHours Int      @default(4) @map("popup_interval_hours")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
 }
 
 enum AdvertisementType {

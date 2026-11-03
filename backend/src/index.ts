@@ -19,6 +19,7 @@ import deviceCommandsRouter from './routes/device-commands';
 import advertisementsRouter from './routes/advertisements';
 import advertisementAssignmentsRouter from './routes/advertisement-assignments';
 import advertisementsDeviceRouter from './routes/advertisements-device';
+import settingsRouter from './routes/settings';
 import { initMinIO } from './services/minio';
 
 const app = express();
@@ -75,6 +76,7 @@ app.use('/api/terminal/commands', deviceCommandsRouter); // Terminal-facing (pol
 app.use('/api/advertisements', advertisementsRouter);                       // Admin-facing (ad CRUD + upload)
 app.use('/api/advertisement-assignments', advertisementAssignmentsRouter);  // Admin-facing (ad <-> Customer/Terminal assignment)
 app.use('/api/terminal/advertisements', advertisementsDeviceRouter);        // Terminal-facing (poll active/scheduled ads)
+app.use('/api/settings', settingsRouter);                                   // Admin-facing (global app settings)
 
 // ── 404 & Error Handler ───────────────────────────────────────────────────────
 app.use((_req, res) => {

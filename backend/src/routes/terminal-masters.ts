@@ -202,4 +202,82 @@ router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
   return res.json({ message: 'Terminal master deleted' });
 });
 
+// ── Live Download Progress for one Serial No / TID ────────────────────────────
+// Shows, for this terminal master's resolved DEFAULT apps (terminal overrides
+// customer, same precedence as the device-facing catalog), the latest known
+// install status per app plus a summary of which one is currently downloading
+// — so the admin portal's "Downloads" view can show real-time progress
+// instead of only a historical event log.
+router.get('/:id/downloads', requireAdmin, async (req: Request, res: Response) => {
+  const master = await prisma.terminalMaster.findUnique({
+    where: { id: req.params.id },
+    include: { terminal: true },
+  });
+  if (!master) return res.status(404).json({ error: 'Terminal master not found' });
+
+  const assignments = await prisma.appAssignment.findMany({
+    where: {
+      mode: 'DEFAULT',
+      OR: [
+        { scope: 'CUSTOMER', customerId: master.customerId },
+        { scope: 'TERMINAL', terminalMasterId: master.id },
+      ],
+    },
+    include: { app: { select: { id: true, name: true, iconUrl: true } } },
+  });
+
+  const resolved = new Map<string, { app: { id: string; name: string; iconUrl: string | null }; order: number; source: string }>();
+  for (const a of assignments) {
+    if (a.scope === 'CUSTOMER') resolved.set(a.appId, { app: a.app, order: a.order, source: 'CUSTOMER' });
+  }
+  for (const a of assignments) {
+    if (a.scope === 'TERMINAL') resolved.set(a.appId, { app: a.app, order: a.order, source: 'TERMINAL' });
+  }
+  const defaultApps = Array.from(resolved.values()).sort((x, y) => x.order - y.order);
+
+  let appsWithStatus = defaultApps.map((d) => ({
+    appId: d.app.id,
+    name: d.app.name,
+    iconUrl: d.app.iconUrl,
+    order: d.order,
+    source: d.source,
+    status: 'NOT_STARTED' as string,
+    timestamp: null as Date | null,
+  }));
+
+  if (master.terminal && defaultApps.length > 0) {
+    const events = await prisma.downloadEvent.findMany({
+      where: { terminalId: master.terminal.id, appId: { in: defaultApps.map((d) => d.app.id) } },
+      orderBy: { timestamp: 'desc' },
+    });
+    const latestByApp = new Map<string, (typeof events)[number]>();
+    for (const e of events) if (!latestByApp.has(e.appId)) latestByApp.set(e.appId, e);
+    appsWithStatus = appsWithStatus.map((a) => {
+      const ev = latestByApp.get(a.appId);
+      return ev ? { ...a, status: ev.installStatus, timestamp: ev.timestamp } : a;
+    });
+  }
+
+  const total = appsWithStatus.length;
+  const completed = appsWithStatus.filter((a) => a.status === 'SUCCESS').length;
+  const failed = appsWithStatus.filter((a) => a.status === 'FAILED').length;
+  const downloading = appsWithStatus.find((a) => a.status === 'DOWNLOADING');
+  const nextQueued = appsWithStatus.find((a) => a.status === 'NOT_STARTED' || a.status === 'PENDING');
+
+  return res.json({
+    serialNo: master.serialNo,
+    tid: master.tid,
+    enrolled: !!master.terminal,
+    apps: appsWithStatus,
+    summary: {
+      total,
+      completed,
+      failed,
+      currentlyDownloading: downloading?.name ?? null,
+      nextInQueue: !downloading ? nextQueued?.name ?? null : null,
+    },
+  });
+});
+
 export default router;
+

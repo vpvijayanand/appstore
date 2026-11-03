@@ -115,6 +115,7 @@ export const terminalMastersApi = {
   update: (id: string, data: Record<string, unknown>) =>
     api.patch(`/terminal-masters/${id}`, data),
   delete: (id: string) => api.delete(`/terminal-masters/${id}`),
+  getDownloads: (id: string) => api.get(`/terminal-masters/${id}/downloads`),
 };
 
 // ── App Assignments (App <-> Customer/Terminal mapping) ───────────────────────
@@ -125,8 +126,16 @@ export const assignmentsApi = {
     targets: { scope: 'CUSTOMER'; customerIds: string[] } | { scope: 'TERMINAL'; terminalMasterIds: string[] };
     mode: 'DEFAULT' | 'ON_REQUEST';
     replaceExisting?: boolean;
+    orders?: Record<string, number>;
   }) => api.post('/assignments/bulk', payload),
+  updateOrder: (id: string, order: number) => api.patch(`/assignments/${id}`, { order }),
   delete: (id: string) => api.delete(`/assignments/${id}`),
+};
+
+// ── Global App Settings (e.g. ad popup minimum interval) ──────────────────────
+export const settingsApi = {
+  get: () => api.get('/settings'),
+  update: (data: { popupIntervalHours: number }) => api.patch('/settings', data),
 };
 
 // ── Advertisements (image/video/HTML promos with a start/end schedule) ───────

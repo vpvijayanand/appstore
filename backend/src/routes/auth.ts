@@ -163,6 +163,76 @@ router.post('/terminal/enroll', async (req: Request, res: Response) => {
   }
 });
 
+// ── Terminal Login (Serial No + TID) ──────────────────────────────────────────
+// This is the enrollment/login flow used by the customer-facing Android app:
+// the device asks for Serial No + TID only (no customer selection — the
+// customer is derived from the pre-provisioned TerminalMaster, which an admin
+// must have created and mapped a TID to beforehand via the admin portal).
+const enrollBySerialSchema = z.object({
+  serialNo: z.string().min(1),
+  tid: z.string().min(1),
+  model: z.string().optional(),
+});
+
+router.post('/terminal/enroll-by-serial', async (req: Request, res: Response) => {
+  try {
+    const data = enrollBySerialSchema.parse(req.body);
+
+    const master = await prisma.terminalMaster.findFirst({
+      where: { serialNo: data.serialNo, tid: data.tid },
+      include: { customer: true, terminal: true },
+    });
+
+    if (!master) {
+      return res.status(404).json({
+        error: 'Serial No / TID not recognized. Ask an administrator to register and map this device in the admin portal first.',
+      });
+    }
+    if (master.status !== 'ACTIVE') {
+      return res.status(403).json({ error: 'This device has been deactivated. Contact your administrator.' });
+    }
+
+    let terminal;
+    if (master.terminal) {
+      // Already enrolled previously — treat this as a login, reuse the same
+      // credential rather than silently rotating it out from under the device.
+      terminal = await prisma.terminal.update({
+        where: { id: master.terminal.id },
+        data: { lastSeenAt: new Date(), status: 'ACTIVE', model: data.model || master.terminal.model },
+      });
+    } else {
+      const apiKey = 'wl_' + crypto.randomBytes(24).toString('hex');
+      terminal = await prisma.terminal.create({
+        data: {
+          terminalId: master.tid!,
+          customerId: master.customerId,
+          terminalMasterId: master.id,
+          serialNo: master.serialNo,
+          model: data.model || master.model,
+          site: master.site,
+          branchCode: master.branchCode,
+          apiKey,
+          status: 'ACTIVE',
+        },
+      });
+    }
+
+    return res.json({
+      terminalId: terminal.terminalId,
+      apiKey: terminal.apiKey,
+      customerId: terminal.customerId,
+      serialNo: master.serialNo,
+      tid: master.tid,
+      customerName: master.customer.name,
+      message: 'Login successful',
+    });
+  } catch (e) {
+    if (e instanceof z.ZodError) return res.status(400).json({ error: e.errors });
+    console.error(e);
+    return res.status(500).json({ error: 'Login failed' });
+  }
+});
+
 // ── Terminal Ping / Verify API Key ────────────────────────────────────────────
 router.post('/terminal/verify', async (req: Request, res: Response) => {
   const apiKey = req.headers['x-terminal-key'] as string;
