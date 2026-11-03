@@ -10,4 +10,5 @@
     <string name="install_btn">Install</string>
     <string name="installing_btn">Installing…</string>
     <string name="ad_close">Close advertisement</string>
+    <string name="accessibility_service_description">Lets WL BizStore admins remotely tap and swipe on this terminal\'s screen during a live screen-share session.</string>
 </resources>

@@ -23,7 +23,18 @@ services:
       MINIO_PUBLIC_HOST: appstore.vijayanandpremnath.cloud
       MINIO_PUBLIC_SSL: "true"
       MINIO_PUBLIC_PORT: ""
+      # TURN must be a real public host:port — coturn is NOT proxied through
+      # nginx (UDP/TCP media relay can't go through an HTTP reverse proxy).
+      TURN_HOST: appstore.vijayanandpremnath.cloud
 
   admin-portal:
     ports:
       - "127.0.0.1:18093:80"
+
+  # Published directly on the VPS's public IP (not 127.0.0.1-bound like the
+  # other services) since TURN relay traffic bypasses nginx entirely.
+  coturn:
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "49160-49200:49160-49200/udp"

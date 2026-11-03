@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -20,7 +21,10 @@ import advertisementsRouter from './routes/advertisements';
 import advertisementAssignmentsRouter from './routes/advertisement-assignments';
 import advertisementsDeviceRouter from './routes/advertisements-device';
 import settingsRouter from './routes/settings';
+import screenShareRouter from './routes/screen-share';
+import screenShareDeviceRouter from './routes/screen-share-device';
 import { initMinIO } from './services/minio';
+import { attachSignalingServer } from './services/signaling';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -77,6 +81,8 @@ app.use('/api/advertisements', advertisementsRouter);                       // A
 app.use('/api/advertisement-assignments', advertisementAssignmentsRouter);  // Admin-facing (ad <-> Customer/Terminal assignment)
 app.use('/api/terminal/advertisements', advertisementsDeviceRouter);        // Terminal-facing (poll active/scheduled ads)
 app.use('/api/settings', settingsRouter);                                   // Admin-facing (global app settings)
+app.use('/api/terminals', screenShareRouter);            // Admin-facing (remote screen-share sessions)
+app.use('/api/terminal/screen-share', screenShareDeviceRouter); // Terminal-facing (ICE servers)
 
 // ── 404 & Error Handler ───────────────────────────────────────────────────────
 app.use((_req, res) => {
@@ -89,12 +95,18 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 // ── Start ─────────────────────────────────────────────────────────────────────
+// Wrap Express in a plain http.Server so the WebRTC signaling WebSocket server
+// (see services/signaling.ts) can hook the 'upgrade' event on the same port,
+// rather than needing a second listener/port to proxy.
+const httpServer = http.createServer(app);
+attachSignalingServer(httpServer);
+
 initMinIO()
   .catch((err) => {
     console.error('[MinIO] Bucket initialization failed (uploads/downloads will not work until this is fixed):', err);
   })
   .finally(() => {
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`🚀 WL BizStore API running on port ${PORT}`);
       console.log(`   Health: http://localhost:${PORT}/health`);
     });

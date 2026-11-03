@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { terminalsApi, customersApi } from '../api';
 import { Monitor, MapPin, RefreshCw, Loader2, Clock, FileSpreadsheet, Power, RotateCw } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -26,6 +27,7 @@ const STATUS_CONFIG: Record<string, { cls: string; label: string }> = {
 };
 
 export default function TerminalsPage() {
+  const navigate = useNavigate();
   const [terminals, setTerminals] = useState<Terminal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -221,6 +223,16 @@ export default function TerminalsPage() {
                           style={{ fontSize: '11px' }}
                         >
                           🔑 Rotate
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => navigate(`/terminals/${t.id}/screen`)}
+                          disabled={t.status !== 'ACTIVE'}
+                          title="View and remotely control this terminal's screen"
+                          style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Monitor size={12} />
+                          Remote Screen
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"

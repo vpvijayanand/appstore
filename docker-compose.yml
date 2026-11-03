@@ -67,6 +67,9 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
       RATE_LIMIT_WINDOW_MS: 900000
       RATE_LIMIT_MAX: 200
+      TURN_HOST: ${TURN_HOST:-}
+      TURN_PORT: ${TURN_PORT:-3478}
+      TURN_SECRET: ${TURN_SECRET:-change_me_turn_secret_minimum_32_chars}
     networks:
       - wlstore_net
 
@@ -79,6 +82,29 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    networks:
+      - wlstore_net
+
+  # ── coturn (STUN/TURN relay for remote screen-share WebRTC) ─────────────────
+  # Needed so the Android terminal (often behind store/router NAT) and the
+  # admin's browser can establish a peer-to-peer (or relayed) media connection.
+  # Uses the "TURN REST API" ephemeral-credential convention (--use-auth-secret),
+  # matching backend/src/services/turn.ts. TURN does not work behind the nginx
+  # reverse proxy — ports below must be published directly (see docker-compose.prod.yml).
+  coturn:
+    image: coturn/coturn:4.6
+    container_name: wlstore_coturn
+    restart: unless-stopped
+    command: >
+      -n
+      --listening-port=3478
+      --realm=${TURN_HOST:-wlstore.local}
+      --use-auth-secret
+      --static-auth-secret=${TURN_SECRET:-change_me_turn_secret_minimum_32_chars}
+      --min-port=49160
+      --max-port=49200
+      --no-cli
+      --log-file=stdout
     networks:
       - wlstore_net
 
