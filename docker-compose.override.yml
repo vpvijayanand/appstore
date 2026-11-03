@@ -22,7 +22,7 @@ services:
 
   admin-portal:
     ports:
-      - "8080:80"
+      - "8089:80"
 
   coturn:
     ports:
