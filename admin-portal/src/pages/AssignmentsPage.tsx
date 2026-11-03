@@ -161,7 +161,7 @@ export default function AssignmentsPage() {
                   <td>
                     {a.scope === 'CUSTOMER'
                       ? <>{a.customer?.name} <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({a.customer?.code})</span></>
-                      : <span style={{ fontFamily: 'var(--font-mono)' }}>{a.terminalMaster?.tid}</span>}
+                      : <><span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{a.terminalMaster?.serialNo}</span> <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>(TID: {a.terminalMaster?.tid || 'not mapped'})</span></>}
                   </td>
                   <td>
                     {a.mode === 'DEFAULT'
@@ -240,7 +240,7 @@ export default function AssignmentsPage() {
                     className={`btn ${scope === 'TERMINAL' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => { setScope('TERMINAL'); setTargetIds([]); }}
                   >
-                    <HardDrive size={14} /> By Device (TID)
+                    <HardDrive size={14} /> By Device (Serial No)
                   </button>
                 </div>
                 <div style={{ display: 'grid', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
@@ -256,7 +256,7 @@ export default function AssignmentsPage() {
                           style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
                         {scope === 'CUSTOMER'
                           ? <span>{t.name} <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>({t.code})</span></span>
-                          : <span style={{ fontFamily: 'var(--font-mono)' }}>{t.tid} <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: '12px' }}>— {t.customer.name}</span></span>}
+                          : <span style={{ fontFamily: 'var(--font-mono)' }}>{t.serialNo} <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: '12px' }}>— TID: {t.tid || 'not mapped'} — {t.customer.name}</span></span>}
                       </label>
                     );
                   })}
@@ -347,7 +347,7 @@ export default function AssignmentsPage() {
             {/* Step 4: Review */}
             {step === 4 && !result && (
               <div style={{ display: 'grid', gap: '10px', fontSize: '13.5px' }}>
-                <div><b>Scope:</b> {scope === 'CUSTOMER' ? 'By Customer' : 'By Device (TID)'}</div>
+                <div><b>Scope:</b> {scope === 'CUSTOMER' ? 'By Customer' : 'By Device (Serial No)'}</div>
                 <div><b>Targets:</b> {targetIds.length} selected</div>
                 <div><b>Apps:</b> {appIds.map(id => apps.find(a => a.id === id)?.name).join(', ')}</div>
                 <div><b>Mode:</b> {mode === 'DEFAULT' ? 'Default (auto-install)' : 'On Request'}</div>
