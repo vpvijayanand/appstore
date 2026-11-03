@@ -8,11 +8,12 @@ const prisma = new PrismaClient();
 
 // ── List Assignments ──────────────────────────────────────────────────────────
 router.get('/', requireAdmin, async (req: Request, res: Response) => {
-  const { scope, customerId, terminalMasterId, advertisementId } = req.query as Record<string, string>;
+  const { scope, customerId, terminalMasterId, groupId, advertisementId } = req.query as Record<string, string>;
   const where: any = {};
   if (scope) where.scope = scope;
   if (customerId) where.customerId = customerId;
   if (terminalMasterId) where.terminalMasterId = terminalMasterId;
+  if (groupId) where.groupId = groupId;
   if (advertisementId) where.advertisementId = advertisementId;
 
   const assignments = await prisma.advertisementAssignment.findMany({
@@ -21,6 +22,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
       advertisement: { select: { id: true, title: true, type: true, displayMode: true } },
       customer: { select: { id: true, name: true, code: true } },
       terminalMaster: { select: { id: true, tid: true, serialNo: true } },
+      group: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -31,11 +33,13 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
 // ── Bulk Assign ───────────────────────────────────────────────────────────────
 // targets.scope = CUSTOMER -> targets.customerIds[]
 // targets.scope = TERMINAL -> targets.terminalMasterIds[]
+// targets.scope = GROUP    -> targets.groupIds[] (named group of serial numbers)
 const bulkSchema = z.object({
   advertisementIds: z.array(z.string()).min(1),
   targets: z.union([
     z.object({ scope: z.literal('CUSTOMER'), customerIds: z.array(z.string()).min(1) }),
     z.object({ scope: z.literal('TERMINAL'), terminalMasterIds: z.array(z.string()).min(1) }),
+    z.object({ scope: z.literal('GROUP'), groupIds: z.array(z.string()).min(1) }),
   ]),
   replaceExisting: z.boolean().optional().default(false),
 });
@@ -43,14 +47,18 @@ const bulkSchema = z.object({
 router.post('/bulk', requireAdmin, async (req: Request, res: Response) => {
   try {
     const { advertisementIds, targets, replaceExisting } = bulkSchema.parse(req.body);
-    const scope: AssignmentScope = targets.scope === 'CUSTOMER' ? AssignmentScope.CUSTOMER : AssignmentScope.TERMINAL;
-    const targetIds = targets.scope === 'CUSTOMER' ? targets.customerIds : targets.terminalMasterIds;
+    const scope: AssignmentScope = targets.scope === 'CUSTOMER'
+      ? AssignmentScope.CUSTOMER
+      : targets.scope === 'TERMINAL' ? AssignmentScope.TERMINAL : AssignmentScope.GROUP;
+    const targetIds = targets.scope === 'CUSTOMER' ? targets.customerIds
+      : targets.scope === 'TERMINAL' ? targets.terminalMasterIds : targets.groupIds;
 
     let created = 0;
     let removed = 0;
 
     for (const targetId of targetIds) {
-      const whereTarget = scope === AssignmentScope.CUSTOMER ? { customerId: targetId } : { terminalMasterId: targetId };
+      const whereTarget = scope === AssignmentScope.CUSTOMER ? { customerId: targetId }
+        : scope === AssignmentScope.TERMINAL ? { terminalMasterId: targetId } : { groupId: targetId };
 
       if (replaceExisting) {
         const existing = await prisma.advertisementAssignment.findMany({ where: { scope, ...whereTarget } });
@@ -64,7 +72,9 @@ router.post('/bulk', requireAdmin, async (req: Request, res: Response) => {
       for (const advertisementId of advertisementIds) {
         const uniqueWhere = scope === AssignmentScope.CUSTOMER
           ? { advertisementId_customerId: { advertisementId, customerId: targetId } }
-          : { advertisementId_terminalMasterId: { advertisementId, terminalMasterId: targetId } };
+          : scope === AssignmentScope.TERMINAL
+          ? { advertisementId_terminalMasterId: { advertisementId, terminalMasterId: targetId } }
+          : { advertisementId_groupId: { advertisementId, groupId: targetId } };
 
         const existing = await (prisma.advertisementAssignment as any).findUnique({ where: uniqueWhere });
         if (!existing) {

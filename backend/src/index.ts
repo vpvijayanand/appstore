@@ -15,6 +15,7 @@ import customersRouter from './routes/customers';
 import terminalsRouter from './routes/terminals';
 import categoriesRouter from './routes/categories';
 import terminalMastersRouter from './routes/terminal-masters';
+import terminalGroupsRouter from './routes/terminal-groups';
 import assignmentsRouter from './routes/assignments';
 import deviceCommandsRouter from './routes/device-commands';
 import advertisementsRouter from './routes/advertisements';
@@ -75,6 +76,7 @@ app.use('/api/customers', customersRouter);   // Admin-facing
 app.use('/api/terminals', terminalsRouter);   // Admin-facing
 app.use('/api/categories', categoriesRouter); // Admin-facing
 app.use('/api/terminal-masters', terminalMastersRouter); // Admin-facing (Serial No / TID device master)
+app.use('/api/terminal-groups', terminalGroupsRouter);    // Admin-facing (named group of Serial No/TID devices)
 app.use('/api/assignments', assignmentsRouter);          // Admin-facing (App <-> Customer/Terminal assignment)
 app.use('/api/terminal/commands', deviceCommandsRouter); // Terminal-facing (poll + report remote commands)
 app.use('/api/advertisements', advertisementsRouter);                       // Admin-facing (ad CRUD + upload)

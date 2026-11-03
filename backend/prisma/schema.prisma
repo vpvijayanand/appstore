@@ -42,6 +42,7 @@ model Customer {
   terminals   Terminal[]
   entitlements CustomerEntitlement[]
   terminalMasters TerminalMaster[]
+  terminalGroups TerminalGroup[]
   assignments AppAssignment[]
   advertisementAssignments AdvertisementAssignment[]
 
@@ -69,11 +70,34 @@ model TerminalMaster {
   terminal    Terminal?
   assignments AppAssignment[]
   advertisementAssignments AdvertisementAssignment[]
+  groups      TerminalGroup[] @relation("TerminalGroupMembers")
   createdById String?  @map("created_by_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("terminal_masters")
+}
+
+// ─── Terminal Groups (named set of Serial No/TID devices) ───────────────────
+// A reusable, named collection of TerminalMasters (e.g. "Mumbai Flagship
+// Stores") an admin can assign an Advertisement to in one step instead of
+// picking individual serial numbers every time. Membership is dynamic — a
+// device added to the group later automatically becomes eligible for any ad
+// already assigned to the group (see AdvertisementAssignment.groupId and the
+// device-side /advertisements/pending resolution).
+model TerminalGroup {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  customerId  String?          @map("customer_id")
+  customer    Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  members     TerminalMaster[] @relation("TerminalGroupMembers")
+  assignments AdvertisementAssignment[]
+  createdById String?          @map("created_by_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@map("terminal_groups")
 }
 
 enum TerminalMasterStatus {
@@ -112,6 +136,7 @@ model AppAssignment {
 enum AssignmentScope {
   CUSTOMER
   TERMINAL
+  GROUP
 }
 
 enum AssignmentMode {
@@ -383,12 +408,16 @@ model AdvertisementAssignment {
   customer         Customer?       @relation(fields: [customerId], references: [id], onDelete: Cascade)
   terminalMasterId String?         @map("terminal_master_id")
   terminalMaster   TerminalMaster? @relation(fields: [terminalMasterId], references: [id], onDelete: Cascade)
+  groupId          String?         @map("group_id")
+  group            TerminalGroup?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdById      String?         @map("created_by_id")
   createdAt        DateTime        @default(now()) @map("created_at")
 
   @@unique([advertisementId, customerId])
   @@unique([advertisementId, terminalMasterId])
+  @@unique([advertisementId, groupId])
   @@index([customerId])
   @@index([terminalMasterId])
+  @@index([groupId])
   @@map("advertisement_assignments")
 }

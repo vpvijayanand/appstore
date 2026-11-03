@@ -7,14 +7,26 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // ── Get Currently-Active Advertisements For This Terminal ─────────────────────
-// Resolves ads assigned (directly or via the terminal's customer) to this
-// device whose schedule window currently covers "now" and are still active.
-// Same CUSTOMER/TERMINAL union pattern as catalog.ts's app resolution — a
-// terminal sees both its customer-wide ads and its own device-specific ads.
+// Resolves ads assigned (directly, via the terminal's customer, or via a
+// named TerminalGroup the device's TerminalMaster belongs to) to this device
+// whose schedule window currently covers "now" and are still active. Same
+// CUSTOMER/TERMINAL/GROUP union pattern as catalog.ts's app resolution — a
+// terminal sees its customer-wide ads, its own device-specific ads, and any
+// ads assigned to a group it's a member of.
 router.get('/pending', requireTerminal, async (req: Request, res: Response) => {
   try {
     const { customerId, terminalMasterId } = req.terminal!;
     const now = new Date();
+
+    // A device's own terminal master may belong to one or more named groups
+    // (see TerminalGroup) — resolve those first so group-scoped ad
+    // assignments (scope: GROUP) are included below.
+    const groupIds = terminalMasterId
+      ? (await prisma.terminalGroup.findMany({
+          where: { members: { some: { id: terminalMasterId } } },
+          select: { id: true },
+        })).map(g => g.id)
+      : [];
 
     const [assignments, settings] = await Promise.all([
       prisma.advertisementAssignment.findMany({
@@ -22,6 +34,7 @@ router.get('/pending', requireTerminal, async (req: Request, res: Response) => {
           OR: [
             { scope: 'CUSTOMER', customerId },
             ...(terminalMasterId ? [{ scope: 'TERMINAL' as const, terminalMasterId }] : []),
+            ...(groupIds.length ? [{ scope: 'GROUP' as const, groupId: { in: groupIds } }] : []),
           ],
           advertisement: {
             isActive: true,

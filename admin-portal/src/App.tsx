@@ -13,6 +13,7 @@ import CategoriesPage from './pages/CategoriesPage';
 import DeviceMasterPage from './pages/DeviceMasterPage';
 import AssignmentsPage from './pages/AssignmentsPage';
 import AdvertisementsPage from './pages/AdvertisementsPage';
+import GroupsPage from './pages/GroupsPage';
 import 'leaflet/dist/leaflet.css';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="terminals/:id/screen" element={<RemoteScreenPage />} />
         <Route path="device-master" element={<DeviceMasterPage />} />
         <Route path="assignments" element={<AssignmentsPage />} />
+        <Route path="groups" element={<GroupsPage />} />
         <Route path="advertisements" element={<AdvertisementsPage />} />
         <Route path="map" element={<AnalyticsMapPage />} />
         <Route path="downloads" element={<DownloadsPage />} />

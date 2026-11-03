@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { advertisementsApi, advertisementAssignmentsApi, customersApi, terminalMastersApi, settingsApi } from '../api';
+import { advertisementsApi, advertisementAssignmentsApi, customersApi, terminalMastersApi, terminalGroupsApi, settingsApi } from '../api';
 import {
   Megaphone, Plus, Trash2, Loader2, CheckCircle, XCircle, Image as ImageIcon,
-  Video, FileCode, Users, HardDrive, Share2, Clock, Settings as SettingsIcon,
+  Video, FileCode, Users, HardDrive, Share2, Clock, Settings as SettingsIcon, Boxes,
 } from 'lucide-react';
 
 interface Advertisement {
@@ -21,8 +21,9 @@ interface Advertisement {
 
 interface Customer { id: string; name: string; code: string; }
 interface TerminalMaster { id: string; tid: string; serialNo: string; customer: { name: string } }
+interface Group { id: string; name: string; _count: { members: number }; }
 
-type Scope = 'CUSTOMER' | 'TERMINAL';
+type Scope = 'CUSTOMER' | 'TERMINAL' | 'GROUP';
 
 function statusOf(ad: Advertisement): { label: string; cls: string } {
   if (!ad.isActive) return { label: 'Disabled', cls: 'badge-default' };
@@ -46,7 +47,7 @@ function toDatetimeLocal(iso?: string) {
 export default function AdvertisementsPage() {
   const [ads, setAds] = useState<Advertisement[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [masters, setMasters] = useState<TerminalMaster[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Create modal
@@ -70,6 +71,15 @@ export default function AdvertisementsPage() {
   const [targetIds, setTargetIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Device (TERMINAL) target search/filter state — avoids ever loading the
+  // full terminal-master list, which can run into the lakhs.
+  const [terminalSearch, setTerminalSearch] = useState('');
+  const [terminalCustomerFilter, setTerminalCustomerFilter] = useState('');
+  const [filteredMasters, setFilteredMasters] = useState<TerminalMaster[]>([]);
+  const [mastersLoading, setMastersLoading] = useState(false);
+  const [mastersTotal, setMastersTotal] = useState(0);
+  const [selectedTerminalDetails, setSelectedTerminalDetails] = useState<Record<string, TerminalMaster>>({});
+
   // Global popup-interval setting (minimum gap between popups on the device,
   // regardless of which ad is shown — configurable instead of hardcoded).
   const [popupIntervalHours, setPopupIntervalHours] = useState<number | ''>('');
@@ -77,17 +87,39 @@ export default function AdvertisementsPage() {
 
   const load = () => {
     setLoading(true);
-    Promise.all([advertisementsApi.list(), customersApi.list(), terminalMastersApi.list(), settingsApi.get()])
-      .then(([adRes, cRes, mRes, sRes]) => {
+    Promise.all([advertisementsApi.list(), customersApi.list(), terminalGroupsApi.list(), settingsApi.get()])
+      .then(([adRes, cRes, gRes, sRes]) => {
         setAds(adRes.data.advertisements);
         setCustomers(cRes.data.customers);
-        setMasters(mRes.data.terminalMasters);
+        setGroups(gRes.data.terminalGroups);
         setPopupIntervalHours(sRes.data.settings.popupIntervalHours);
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
+
+  // Live search for terminal masters when the assign modal's scope is TERMINAL.
+  useEffect(() => {
+    if (!assigningAd || scope !== 'TERMINAL') return;
+    if (!terminalCustomerFilter && terminalSearch.trim().length < 2) {
+      setFilteredMasters([]); setMastersTotal(0);
+      return;
+    }
+    const handle = setTimeout(() => {
+      setMastersLoading(true);
+      const params: Record<string, string> = {};
+      if (terminalCustomerFilter) params.customerId = terminalCustomerFilter;
+      if (terminalSearch.trim().length >= 2) params.search = terminalSearch.trim();
+      terminalMastersApi.list(params)
+        .then(res => {
+          setFilteredMasters(res.data.terminalMasters);
+          setMastersTotal(res.data.total ?? res.data.terminalMasters.length);
+        })
+        .finally(() => setMastersLoading(false));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [assigningAd, scope, terminalSearch, terminalCustomerFilter]);
 
   const saveSettings = async () => {
     if (popupIntervalHours === '' || popupIntervalHours < 0) return;
@@ -155,10 +187,16 @@ export default function AdvertisementsPage() {
     setAssigningAd(ad);
     setScope('CUSTOMER');
     setTargetIds([]);
+    setTerminalSearch(''); setTerminalCustomerFilter(''); setFilteredMasters([]); setSelectedTerminalDetails({});
   };
 
   const toggleTarget = (id: string) => {
     setTargetIds(list => list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
+  };
+
+  const toggleTerminalTarget = (t: TerminalMaster) => {
+    setSelectedTerminalDetails(prev => ({ ...prev, [t.id]: t }));
+    toggleTarget(t.id);
   };
 
   const submitAssign = async () => {
@@ -167,7 +205,9 @@ export default function AdvertisementsPage() {
     try {
       const targets = scope === 'CUSTOMER'
         ? { scope: 'CUSTOMER' as const, customerIds: targetIds }
-        : { scope: 'TERMINAL' as const, terminalMasterIds: targetIds };
+        : scope === 'TERMINAL'
+        ? { scope: 'TERMINAL' as const, terminalMasterIds: targetIds }
+        : { scope: 'GROUP' as const, groupIds: targetIds };
       await advertisementAssignmentsApi.bulk({ advertisementIds: [assigningAd.id], targets });
       setAssigningAd(null);
       load();
@@ -414,28 +454,131 @@ export default function AdvertisementsPage() {
                 className={`btn ${scope === 'TERMINAL' ? 'btn-primary' : 'btn-secondary'}`}
                 onClick={() => { setScope('TERMINAL'); setTargetIds([]); }}
               >
-                <HardDrive size={14} /> By Device (TID)
+                <HardDrive size={14} /> By Device (Serial No)
+              </button>
+              <button
+                className={`btn ${scope === 'GROUP' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => { setScope('GROUP'); setTargetIds([]); }}
+              >
+                <Boxes size={14} /> By Group
               </button>
             </div>
 
-            <div style={{ display: 'grid', gap: '8px', maxHeight: '320px', overflowY: 'auto', marginBottom: '16px' }}>
-              {(scope === 'CUSTOMER' ? customers : masters).map((t: any) => {
-                const checked = targetIds.includes(t.id);
-                return (
-                  <label key={t.id} style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
-                    borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
-                    border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
-                  }}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleTarget(t.id)}
-                      style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
-                    {scope === 'CUSTOMER'
-                      ? <span>{t.name} <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>({t.code})</span></span>
-                      : <span style={{ fontFamily: 'var(--font-mono)' }}>{t.tid} <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: '12px' }}>— {t.customer.name}</span></span>}
-                  </label>
-                );
-              })}
-            </div>
+            {scope === 'CUSTOMER' && (
+              <div style={{ display: 'grid', gap: '8px', maxHeight: '320px', overflowY: 'auto', marginBottom: '16px' }}>
+                {customers.map(t => {
+                  const checked = targetIds.includes(t.id);
+                  return (
+                    <label key={t.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                      borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
+                      border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
+                    }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleTarget(t.id)}
+                        style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
+                      <span>{t.name} <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>({t.code})</span></span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            {scope === 'GROUP' && (
+              <div style={{ display: 'grid', gap: '8px', maxHeight: '320px', overflowY: 'auto', marginBottom: '16px' }}>
+                {groups.map(g => {
+                  const checked = targetIds.includes(g.id);
+                  return (
+                    <label key={g.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                      borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
+                      border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
+                    }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleTarget(g.id)}
+                        style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
+                      <span>{g.name} <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>({g._count.members} device{g._count.members === 1 ? '' : 's'})</span></span>
+                    </label>
+                  );
+                })}
+                {groups.length === 0 && (
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    No device groups yet — create one on the Device Groups page first.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {scope === 'TERMINAL' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                  <select className="form-input" value={terminalCustomerFilter} onChange={e => setTerminalCustomerFilter(e.target.value)} style={{ flex: 1 }}>
+                    <option value="">All customers</option>
+                    {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
+                  </select>
+                  <input
+                    type="text" className="form-input" placeholder="Type Serial No or TID to search..."
+                    value={terminalSearch} onChange={e => setTerminalSearch(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                </div>
+
+                {targetIds.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                    {targetIds.map(id => {
+                      const t = selectedTerminalDetails[id];
+                      return (
+                        <span key={id} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
+                          borderRadius: 'var(--radius-sm)', background: 'rgba(1,135,95,0.12)',
+                          border: '1px solid var(--brand-primary)', fontSize: '12px', fontFamily: 'var(--font-mono)',
+                        }}>
+                          {t?.serialNo || id}
+                          <button
+                            onClick={() => toggleTarget(id)}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 700, lineHeight: 1 }}
+                            title="Remove"
+                          >✕</button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!terminalCustomerFilter && terminalSearch.trim().length < 2 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    Select a customer or type at least 2 characters of a Serial No / TID to search.
+                  </div>
+                ) : mastersLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+                    <Loader2 size={18} className="spinner" color="var(--text-muted)" />
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '8px', maxHeight: '260px', overflowY: 'auto' }}>
+                    {filteredMasters.map(t => {
+                      const checked = targetIds.includes(t.id);
+                      return (
+                        <label key={t.id} style={{
+                          display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                          borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
+                          border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
+                        }}>
+                          <input type="checkbox" checked={checked} onChange={() => toggleTerminalTarget(t)}
+                            style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
+                          <span style={{ fontFamily: 'var(--font-mono)' }}>{t.serialNo} <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: '12px' }}>— TID: {t.tid || 'not mapped'} — {t.customer.name}</span></span>
+                        </label>
+                      );
+                    })}
+                    {filteredMasters.length === 0 && (
+                      <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>No matching terminals.</div>
+                    )}
+                    {mastersTotal > filteredMasters.length && (
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        Showing first {filteredMasters.length} of {mastersTotal} matches — refine your search for more.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button className="btn btn-secondary" onClick={() => setAssigningAd(null)}>Cancel</button>

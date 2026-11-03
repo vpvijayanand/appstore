@@ -128,6 +128,20 @@ export const terminalMastersApi = {
   getDownloads: (id: string) => api.get(`/terminal-masters/${id}/downloads`),
 };
 
+// ── Terminal Groups (named set of Serial No/TID devices, for ad targeting) ───
+export const terminalGroupsApi = {
+  list: (params?: Record<string, string>) => api.get('/terminal-groups', { params }),
+  get: (id: string) => api.get(`/terminal-groups/${id}`),
+  create: (data: { name: string; description?: string; customerId?: string; memberIds?: string[] }) =>
+    api.post('/terminal-groups', data),
+  update: (id: string, data: Record<string, unknown>) => api.patch(`/terminal-groups/${id}`, data),
+  delete: (id: string) => api.delete(`/terminal-groups/${id}`),
+  addMembers: (id: string, terminalMasterIds: string[]) =>
+    api.post(`/terminal-groups/${id}/members`, { terminalMasterIds }),
+  removeMember: (id: string, terminalMasterId: string) =>
+    api.delete(`/terminal-groups/${id}/members/${terminalMasterId}`),
+};
+
 // ── App Assignments (App <-> Customer/Terminal mapping) ───────────────────────
 export const assignmentsApi = {
   list: (params?: Record<string, string>) => api.get('/assignments', { params }),
@@ -161,12 +175,12 @@ export const advertisementsApi = {
   delete: (id: string) => api.delete(`/advertisements/${id}`),
 };
 
-// ── Advertisement Assignments (Ad <-> Customer/Terminal mapping) ─────────────
+// ── Advertisement Assignments (Ad <-> Customer/Terminal/Group mapping) ───────
 export const advertisementAssignmentsApi = {
   list: (params?: Record<string, string>) => api.get('/advertisement-assignments', { params }),
   bulk: (payload: {
     advertisementIds: string[];
-    targets: { scope: 'CUSTOMER'; customerIds: string[] } | { scope: 'TERMINAL'; terminalMasterIds: string[] };
+    targets: { scope: 'CUSTOMER'; customerIds: string[] } | { scope: 'TERMINAL'; terminalMasterIds: string[] } | { scope: 'GROUP'; groupIds: string[] };
     replaceExisting?: boolean;
   }) => api.post('/advertisement-assignments/bulk', payload),
   delete: (id: string) => api.delete(`/advertisement-assignments/${id}`),
