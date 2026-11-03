@@ -22,17 +22,22 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
     ];
   }
 
-  const masters = await prisma.terminalMaster.findMany({
-    where,
-    include: {
-      customer: { select: { id: true, name: true, code: true } },
-      terminal: { select: { id: true, status: true, lastSeenAt: true } },
-      _count: { select: { assignments: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  const take = 100;
+  const [masters, total] = await Promise.all([
+    prisma.terminalMaster.findMany({
+      where,
+      include: {
+        customer: { select: { id: true, name: true, code: true } },
+        terminal: { select: { id: true, status: true, lastSeenAt: true } },
+        _count: { select: { assignments: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+    }),
+    prisma.terminalMaster.count({ where }),
+  ]);
 
-  return res.json({ terminalMasters: masters });
+  return res.json({ terminalMasters: masters, total });
 });
 
 router.get('/:id', requireAdmin, async (req: Request, res: Response) => {

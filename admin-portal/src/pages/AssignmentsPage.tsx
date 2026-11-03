@@ -26,7 +26,6 @@ export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [apps, setApps] = useState<App[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [masters, setMasters] = useState<TerminalMaster[]>([]);
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
 
@@ -42,29 +41,68 @@ export default function AssignmentsPage() {
   const [result, setResult] = useState<any>(null);
   const [orderSaving, setOrderSaving] = useState<string | null>(null);
 
+  // Step 1 target search/filter state
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [terminalSearch, setTerminalSearch] = useState('');
+  const [terminalCustomerFilter, setTerminalCustomerFilter] = useState('');
+  const [filteredMasters, setFilteredMasters] = useState<TerminalMaster[]>([]);
+  const [mastersLoading, setMastersLoading] = useState(false);
+  const [mastersTotal, setMastersTotal] = useState(0);
+  const [selectedTerminalDetails, setSelectedTerminalDetails] = useState<Record<string, TerminalMaster>>({});
+
   const load = () => {
     setLoading(true);
-    Promise.all([assignmentsApi.list(), appsApi.list({ limit: '200' }), customersApi.list(), terminalMastersApi.list()])
-      .then(([aRes, appRes, cRes, mRes]) => {
+    Promise.all([assignmentsApi.list(), appsApi.list({ limit: '200' }), customersApi.list()])
+      .then(([aRes, appRes, cRes]) => {
         setAssignments(aRes.data.assignments);
         setApps(appRes.data.apps);
         setCustomers(cRes.data.customers);
-        setMasters(mRes.data.terminalMasters);
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
 
+  // Live search for terminal masters (by customer and/or typed Serial No / TID) —
+  // avoids ever loading the full terminal-master list, which can run into the
+  // lakhs for large deployments.
+  useEffect(() => {
+    if (!showWizard || scope !== 'TERMINAL') return;
+    if (!terminalCustomerFilter && terminalSearch.trim().length < 2) {
+      setFilteredMasters([]); setMastersTotal(0);
+      return;
+    }
+    const handle = setTimeout(() => {
+      setMastersLoading(true);
+      const params: Record<string, string> = {};
+      if (terminalCustomerFilter) params.customerId = terminalCustomerFilter;
+      if (terminalSearch.trim().length >= 2) params.search = terminalSearch.trim();
+      terminalMastersApi.list(params)
+        .then(res => {
+          setFilteredMasters(res.data.terminalMasters);
+          setMastersTotal(res.data.total ?? res.data.terminalMasters.length);
+        })
+        .finally(() => setMastersLoading(false));
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [showWizard, scope, terminalSearch, terminalCustomerFilter]);
+
   const resetWizard = () => {
     setStep(1); setScope('CUSTOMER'); setTargetIds([]); setAppIds([]);
     setMode('ON_REQUEST'); setReplaceExisting(false); setResult(null); setOrder({});
+    setCustomerSearch(''); setTerminalSearch(''); setTerminalCustomerFilter('');
+    setFilteredMasters([]); setSelectedTerminalDetails({});
   };
 
   const openWizard = () => { resetWizard(); setShowWizard(true); };
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => {
     set(list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
+  };
+
+  const toggleTerminal = (t: TerminalMaster) => {
+    setSelectedTerminalDetails(prev => ({ ...prev, [t.id]: t }));
+    toggle(targetIds, setTargetIds, t.id);
   };
 
   const toggleApp = (id: string) => {
@@ -242,24 +280,112 @@ export default function AssignmentsPage() {
                     <HardDrive size={14} /> By Device (Serial No)
                   </button>
                 </div>
-                <div style={{ display: 'grid', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
-                  {(scope === 'CUSTOMER' ? customers : masters).map((t: any) => {
-                    const checked = targetIds.includes(t.id);
-                    return (
-                      <label key={t.id} style={{
-                        display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
-                        borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
-                        border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
-                      }}>
-                        <input type="checkbox" checked={checked} onChange={() => toggle(targetIds, setTargetIds, t.id)}
-                          style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
-                        {scope === 'CUSTOMER'
-                          ? <span>{t.name} <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>({t.code})</span></span>
-                          : <span style={{ fontFamily: 'var(--font-mono)' }}>{t.serialNo} <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: '12px' }}>— TID: {t.tid || 'not mapped'} — {t.customer.name}</span></span>}
-                      </label>
-                    );
-                  })}
-                </div>
+
+                {scope === 'CUSTOMER' ? (
+                  <>
+                    <input
+                      type="text" className="form-input" placeholder="Search customer name or code..."
+                      value={customerSearch} onChange={e => setCustomerSearch(e.target.value)}
+                      style={{ marginBottom: '12px', width: '100%' }}
+                    />
+                    <div style={{ display: 'grid', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
+                      {customers
+                        .filter(c => {
+                          const q = customerSearch.trim().toLowerCase();
+                          return !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q);
+                        })
+                        .map(t => {
+                          const checked = targetIds.includes(t.id);
+                          return (
+                            <label key={t.id} style={{
+                              display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                              borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
+                              border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
+                            }}>
+                              <input type="checkbox" checked={checked} onChange={() => toggle(targetIds, setTargetIds, t.id)}
+                                style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
+                              <span>{t.name} <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>({t.code})</span></span>
+                            </label>
+                          );
+                        })}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                      <select
+                        className="form-input" value={terminalCustomerFilter}
+                        onChange={e => setTerminalCustomerFilter(e.target.value)}
+                        style={{ flex: 1 }}
+                      >
+                        <option value="">All customers</option>
+                        {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.code})</option>)}
+                      </select>
+                      <input
+                        type="text" className="form-input" placeholder="Type Serial No or TID to search..."
+                        value={terminalSearch} onChange={e => setTerminalSearch(e.target.value)}
+                        style={{ flex: 1 }}
+                      />
+                    </div>
+
+                    {targetIds.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                        {targetIds.map(id => {
+                          const t = selectedTerminalDetails[id];
+                          return (
+                            <span key={id} style={{
+                              display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 8px',
+                              borderRadius: 'var(--radius-sm)', background: 'rgba(1,135,95,0.12)',
+                              border: '1px solid var(--brand-primary)', fontSize: '12px', fontFamily: 'var(--font-mono)',
+                            }}>
+                              {t?.serialNo || id}
+                              <button
+                                onClick={() => toggle(targetIds, setTargetIds, id)}
+                                style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 700, lineHeight: 1 }}
+                                title="Remove"
+                              >✕</button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {!terminalCustomerFilter && terminalSearch.trim().length < 2 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                        Select a customer or type at least 2 characters of a Serial No / TID to search.
+                      </div>
+                    ) : mastersLoading ? (
+                      <div style={{ display: 'flex', justifyContent: 'center', padding: '24px' }}>
+                        <Loader2 size={20} className="spinner" color="var(--text-muted)" />
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gap: '8px', maxHeight: '240px', overflowY: 'auto' }}>
+                        {filteredMasters.map(t => {
+                          const checked = targetIds.includes(t.id);
+                          return (
+                            <label key={t.id} style={{
+                              display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                              borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
+                              border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
+                            }}>
+                              <input type="checkbox" checked={checked} onChange={() => toggleTerminal(t)}
+                                style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
+                              <span style={{ fontFamily: 'var(--font-mono)' }}>{t.serialNo} <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-sans)', fontSize: '12px' }}>— TID: {t.tid || 'not mapped'} — {t.customer.name}</span></span>
+                            </label>
+                          );
+                        })}
+                        {filteredMasters.length === 0 && (
+                          <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>No matching terminals.</div>
+                        )}
+                        {mastersTotal > filteredMasters.length && (
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                            Showing first {filteredMasters.length} of {mastersTotal} matches — refine your search for more.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
