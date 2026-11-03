@@ -115,8 +115,7 @@ export default function AssignmentsPage() {
 
   const canNext = (
     (step === 1 && targetIds.length > 0) ||
-    (step === 2 && appIds.length > 0) ||
-    step === 3
+    (step === 2 && appIds.length > 0)
   );
 
   return (
@@ -208,13 +207,13 @@ export default function AssignmentsPage() {
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowWizard(false)}>
           <div className="modal" style={{ width: '620px' }}>
             <div className="modal-header">
-              <h3 className="modal-title">Bulk Assign Apps — Step {step} of 4</h3>
+              <h3 className="modal-title">Bulk Assign Apps — Step {step} of 3</h3>
               <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setShowWizard(false)}>✕</button>
             </div>
 
             {/* Step indicator */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
-              {['Targets', 'Apps', 'Mode', 'Review'].map((label, i) => (
+              {['Targets', 'Apps & Mode', 'Review'].map((label, i) => (
                 <div key={label} style={{
                   flex: 1, textAlign: 'center', padding: '8px 4px', borderRadius: 'var(--radius-sm)',
                   fontSize: '12px', fontWeight: 600,
@@ -264,31 +263,32 @@ export default function AssignmentsPage() {
               </div>
             )}
 
-            {/* Step 2: Apps */}
+            {/* Step 2: Apps + Mode + Order (combined) */}
             {step === 2 && (
-              <div style={{ display: 'grid', gap: '8px', maxHeight: '340px', overflowY: 'auto' }}>
-                {apps.map(app => {
-                  const checked = appIds.includes(app.id);
-                  return (
-                    <label key={app.id} style={{
-                      display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
-                      borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
-                      border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
-                    }}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleApp(app.id)}
-                        style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
-                      <span>{app.name}</span>
-                      {checked && <CheckCircle size={15} color="var(--brand-primary)" style={{ marginLeft: 'auto' }} />}
-                    </label>
-                  );
-                })}
-              </div>
-            )}
+              <div style={{ display: 'grid', gap: '18px' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '8px' }}>Apps</div>
+                  <div style={{ display: 'grid', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+                    {apps.map(app => {
+                      const checked = appIds.includes(app.id);
+                      return (
+                        <label key={app.id} style={{
+                          display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                          borderRadius: 'var(--radius-sm)', background: checked ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
+                          border: `1px solid ${checked ? 'var(--brand-primary)' : 'var(--border-subtle)'}`, cursor: 'pointer',
+                        }}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleApp(app.id)}
+                            style={{ accentColor: 'var(--brand-primary)', width: '16px', height: '16px' }} />
+                          <span>{app.name}</span>
+                          {checked && <CheckCircle size={15} color="var(--brand-primary)" style={{ marginLeft: 'auto' }} />}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* Step 3: Mode */}
-            {step === 3 && (
-              <div style={{ display: 'grid', gap: '14px' }}>
                 <div style={{ display: 'grid', gap: '10px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px' }}>Mode</div>
                   <label style={{
                     display: 'flex', gap: '12px', padding: '14px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
                     background: mode === 'DEFAULT' ? 'rgba(1,135,95,0.1)' : 'var(--bg-surface-2)',
@@ -344,8 +344,8 @@ export default function AssignmentsPage() {
               </div>
             )}
 
-            {/* Step 4: Review */}
-            {step === 4 && !result && (
+            {/* Step 3: Review */}
+            {step === 3 && !result && (
               <div style={{ display: 'grid', gap: '10px', fontSize: '13.5px' }}>
                 <div><b>Scope:</b> {scope === 'CUSTOMER' ? 'By Customer' : 'By Device (Serial No)'}</div>
                 <div><b>Targets:</b> {targetIds.length} selected</div>
@@ -369,7 +369,7 @@ export default function AssignmentsPage() {
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
                 {!result ? (
-                  step < 4 ? (
+                  step < 3 ? (
                     <button className="btn btn-primary" disabled={!canNext} onClick={() => setStep(s => s + 1)}>
                       Next <ChevronRight size={14} />
                     </button>
