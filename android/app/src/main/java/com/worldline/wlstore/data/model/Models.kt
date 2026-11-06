@@ -102,13 +102,15 @@ data class EnrollmentResponse(
     val message: String
 )
 
-// ── Login by Serial No + TID (customer Android app entry point) ─────────────
-// This is the flow actually used by EnrollmentActivity: the device only ever
-// asks for its Serial No + TID (both pre-provisioned/mapped by an admin in
-// the Device Master page) — never a free-text Customer ID.
+// ── Login by Serial No (customer Android app entry point) ───────────────────
+// This is the flow actually used by EnrollmentActivity: the device reads its
+// own factory serial number from the CTOS vendor SDK (TerminalSerialProvider)
+// and sends only that — no manual Serial No / TID entry. The TID and customer
+// are resolved server-side from the Serial No -> TerminalMaster mapping that
+// an admin already pre-provisioned (and assigned a TID to) in the Device
+// Master page.
 data class EnrollBySerialRequest(
     val serialNo: String,
-    val tid: String,
     val model: String? = null
 )
 

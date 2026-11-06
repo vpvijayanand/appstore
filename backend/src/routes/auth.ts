@@ -163,14 +163,16 @@ router.post('/terminal/enroll', async (req: Request, res: Response) => {
   }
 });
 
-// ── Terminal Login (Serial No + TID) ──────────────────────────────────────────
+// ── Terminal Login (Serial No only) ───────────────────────────────────────────
 // This is the enrollment/login flow used by the customer-facing Android app:
-// the device asks for Serial No + TID only (no customer selection — the
-// customer is derived from the pre-provisioned TerminalMaster, which an admin
-// must have created and mapped a TID to beforehand via the admin portal).
+// the device reads its own factory serial number (via the CTOS vendor SDK,
+// see docs/POS_SUPPORT.md) and sends ONLY that — no manual Serial No or TID
+// entry on the device. The TID and customer are derived from the
+// pre-provisioned TerminalMaster, which an admin must have created (Serial
+// No, taken directly off the physical terminal) and assigned a TID to
+// beforehand via the admin portal.
 const enrollBySerialSchema = z.object({
   serialNo: z.string().min(1),
-  tid: z.string().min(1),
   model: z.string().optional(),
 });
 
@@ -178,14 +180,19 @@ router.post('/terminal/enroll-by-serial', async (req: Request, res: Response) =>
   try {
     const data = enrollBySerialSchema.parse(req.body);
 
-    const master = await prisma.terminalMaster.findFirst({
-      where: { serialNo: data.serialNo, tid: data.tid },
+    const master = await prisma.terminalMaster.findUnique({
+      where: { serialNo: data.serialNo },
       include: { customer: true, terminal: true },
     });
 
     if (!master) {
       return res.status(404).json({
-        error: 'Serial No / TID not recognized. Ask an administrator to register and map this device in the admin portal first.',
+        error: 'Serial No not recognized. Ask an administrator to register this device in the admin portal first.',
+      });
+    }
+    if (!master.tid) {
+      return res.status(403).json({
+        error: 'This device is registered but has no TID assigned yet. Ask an administrator to assign a TID in the admin portal.',
       });
     }
     if (master.status !== 'ACTIVE') {
@@ -204,7 +211,7 @@ router.post('/terminal/enroll-by-serial', async (req: Request, res: Response) =>
       const apiKey = 'wl_' + crypto.randomBytes(24).toString('hex');
       terminal = await prisma.terminal.create({
         data: {
-          terminalId: master.tid!,
+          terminalId: master.tid,
           customerId: master.customerId,
           terminalMasterId: master.id,
           serialNo: master.serialNo,

@@ -14,26 +14,30 @@ import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.EnrollBySerialRequest
 import com.worldline.wlstore.service.CommandPollWorker
+import com.worldline.wlstore.service.TerminalSerialProvider
 import com.worldline.wlstore.ui.catalog.CatalogActivity
 import com.worldline.wlstore.ui.setup.DefaultAppsSetupActivity
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * First-launch login screen for the customer Android app.
  *
- * The device identifies itself purely by the Serial Number + TID that an admin
- * has already pre-registered in the Device Master page (admin portal) — there
- * is no free-text Customer ID entry; the customer/site is resolved server-side
- * from the Serial No + TID mapping.
+ * Fully automatic: the device reads its own factory serial number from the
+ * Castles CTOS vendor SDK (TerminalSerialProvider — see docs/POS_SUPPORT.md)
+ * and sends only that to the backend. There is no manual Serial No / TID
+ * entry — the TID and customer/site are resolved server-side from the
+ * Serial No -> TerminalMaster mapping that an admin already pre-provisioned
+ * (and assigned a TID to) in the Device Master page.
  *
  * On subsequent launches, reads the stored API key and navigates directly to the catalog.
  * Stores Serial No / TID / API key in EncryptedSharedPreferences (AES256 + API 23+).
  */
 class EnrollmentActivity : AppCompatActivity() {
 
-    private lateinit var etSerialNo: EditText
-    private lateinit var etTid: EditText
-    private lateinit var btnEnroll: Button
+    private lateinit var tvSerialNo: TextView
+    private lateinit var btnRetry: Button
     private lateinit var progressBar: ProgressBar
     private lateinit var tvStatus: TextView
 
@@ -59,34 +63,39 @@ class EnrollmentActivity : AppCompatActivity() {
         }
 
         setContentView(R.layout.activity_enrollment)
-        etSerialNo = findViewById(R.id.et_serial_no)
-        etTid = findViewById(R.id.et_tid)
-        btnEnroll = findViewById(R.id.btn_enroll)
+        tvSerialNo = findViewById(R.id.tv_serial_no)
+        btnRetry = findViewById(R.id.btn_retry)
         progressBar = findViewById(R.id.progress_bar)
         tvStatus = findViewById(R.id.tv_status)
 
-        btnEnroll.setOnClickListener { startEnrollment() }
+        btnRetry.setOnClickListener { startAutoEnrollment() }
+
+        startAutoEnrollment()
     }
 
-    private fun startEnrollment() {
-        val serialNo = etSerialNo.text.toString().trim()
-        val tid = etTid.text.toString().trim()
-
-        if (serialNo.isEmpty() || tid.isEmpty()) {
-            Toast.makeText(this, "Serial Number and TID are required", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        btnEnroll.isEnabled = false
+    private fun startAutoEnrollment() {
+        btnRetry.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
-        tvStatus.text = "Logging in..."
+        tvSerialNo.text = ""
+        tvStatus.text = "Reading terminal serial number..."
 
         lifecycleScope.launch {
+            val serialNo = withContext(Dispatchers.IO) {
+                TerminalSerialProvider.readFactorySerialNumber()
+            }
+
+            if (serialNo.isNullOrBlank()) {
+                showFailure("Unable to read terminal serial number. Contact support.")
+                return@launch
+            }
+
+            tvSerialNo.text = "Serial No: $serialNo"
+            tvStatus.text = "Logging in..."
+
             try {
                 val response = ApiClient.service.enrollBySerial(
                     EnrollBySerialRequest(
                         serialNo = serialNo,
-                        tid = tid,
                         model = android.os.Build.MODEL,
                     )
                 )
@@ -115,16 +124,18 @@ class EnrollmentActivity : AppCompatActivity() {
                     navigateAfterEnrollment()
                 } else {
                     val error = response.errorBody()?.string() ?: "Unknown error"
-                    tvStatus.text = "❌ Login failed: $error"
-                    btnEnroll.isEnabled = true
+                    showFailure("Login failed: $error")
                 }
             } catch (e: Exception) {
-                tvStatus.text = "❌ Network error: ${e.message}"
-                btnEnroll.isEnabled = true
-            } finally {
-                progressBar.visibility = View.GONE
+                showFailure("Network error: ${e.message}")
             }
         }
+    }
+
+    private fun showFailure(message: String) {
+        tvStatus.text = "❌ $message"
+        progressBar.visibility = View.GONE
+        btnRetry.visibility = View.VISIBLE
     }
 
     private fun navigateToCatalog() {

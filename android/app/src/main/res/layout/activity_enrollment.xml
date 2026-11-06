@@ -1,86 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="32dp"
-    android:gravity="center"
-    android:background="#0F1117">
+    android:fillViewport="true"
+    android:background="#0F1117"
+    android:clipToPadding="false">
 
-    <!-- Logo -->
-    <ImageView
-        android:layout_width="96dp"
-        android:layout_height="96dp"
-        android:layout_marginBottom="8dp"
-        android:contentDescription="@null"
-        android:src="@drawable/logo_mark" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="WL BizStore"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="#E8EAED"
-        android:layout_marginBottom="4dp" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Empowering Your Point of Sale"
-        android:textSize="13sp"
-        android:textColor="#9AA0AD"
-        android:layout_marginBottom="40dp" />
-
-    <!-- Serial Number -->
-    <EditText
-        android:id="@+id/et_serial_no"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Serial Number"
-        android:textColor="#E8EAED"
-        android:textColorHint="#5F6368"
-        android:backgroundTint="#01875F"
-        android:inputType="textCapCharacters"
-        android:layout_marginBottom="16dp" />
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:gravity="center">
 
-    <!-- TID -->
-    <EditText
-        android:id="@+id/et_tid"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="TID (Terminal ID)"
-        android:textColor="#E8EAED"
-        android:textColorHint="#5F6368"
-        android:backgroundTint="#01875F"
-        android:inputType="textCapCharacters"
-        android:layout_marginBottom="32dp" />
+        <!-- Logo -->
+        <ImageView
+            android:layout_width="96dp"
+            android:layout_height="96dp"
+            android:layout_marginBottom="8dp"
+            android:contentDescription="@null"
+            android:src="@drawable/logo_mark" />
 
-    <!-- Login Button -->
-    <Button
-        android:id="@+id/btn_enroll"
-        android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:text="Login"
-        android:textColor="#FFFFFF"
-        android:textSize="15sp"
-        android:backgroundTint="#01875F"
-        android:layout_marginBottom="16dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="WL BizStore"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#E8EAED"
+            android:layout_marginBottom="4dp" />
 
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        android:indeterminateTint="#01875F"
-        android:layout_marginBottom="12dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Empowering Your Point of Sale"
+            android:textSize="13sp"
+            android:textColor="#9AA0AD"
+            android:layout_marginBottom="40dp" />
 
-    <TextView
-        android:id="@+id/tv_status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textColor="#9AA0AD"
-        android:textSize="13sp" />
+        <!-- Serial number read automatically from the terminal (CTOS SDK) —
+             shown read-only for operator confidence, never editable. -->
+        <TextView
+            android:id="@+id/tv_serial_no"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#E8EAED"
+            android:textSize="14sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="24dp" />
 
-</LinearLayout>
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="visible"
+            android:indeterminateTint="#01875F"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:id="@+id/tv_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Reading terminal serial number..."
+            android:textColor="#9AA0AD"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <!-- Only shown if automatic serial read or login fails -->
+        <Button
+            android:id="@+id/btn_retry"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Retry"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:backgroundTint="#01875F"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>
