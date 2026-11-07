@@ -38,3 +38,4 @@ echo "🚀 Restarting backend API..."
 $DOCKER_CMD start backend
 
 echo "🎉 Database restore completed successfully!"
+

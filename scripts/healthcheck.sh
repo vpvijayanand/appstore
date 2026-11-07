@@ -64,3 +64,4 @@ else
   echo "❌ ONE OR MORE CRITICAL CHECKS FAILED — Review logs with: docker compose logs"
   exit 1
 fi
+

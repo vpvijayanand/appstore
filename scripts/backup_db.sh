@@ -27,3 +27,4 @@ echo "✅ Backup completed successfully: $BACKUP_FILE ($FILE_SIZE)"
 echo "🧹 Pruning backups older than 30 days..."
 find "$BACKUP_DIR" -type f -name "wlstore_backup_*.sql.gz" -mtime +30 -delete
 echo "✅ Pruning complete."
+
