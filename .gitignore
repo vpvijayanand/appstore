@@ -93,3 +93,7 @@ payterminal-demo/.gradle/
 payterminal-demo/local.properties
 payterminal-demo/app/build/
 payterminal-demo/build/
+wl_test_app/.gradle/
+wl_test_app/local.properties
+wl_test_app/app/build/
+wl_test_app/build/

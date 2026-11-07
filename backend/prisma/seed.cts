@@ -228,6 +228,19 @@ async function main() {
       minOsApi: 28,
       visibility: 'PRIVATE' as const,
     },
+    {
+      id: 'app66666-6666-6666-6666-666666666666',
+      categoryId: '22222222-2222-2222-2222-222222222222',
+      name: 'WL Test APP',
+      packageName: 'com.worldline.wltestapp',
+      description: 'Simple verification and test application for WL BizStore download and install verification.',
+      version: '1.0.0',
+      versionCode: 1,
+      objectName: 'com.worldline.wltestapp-1.0.0.apk',
+      minOsApi: 26,
+      visibility: 'PUBLIC' as const,
+      realApkAsset: 'wl-test-app-debug.apk',
+    },
   ];
 
   const apps = [];

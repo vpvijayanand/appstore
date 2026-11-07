@@ -1,0 +1,3 @@
+rootProject.name = "wl_test_app"
+include ':app'
+
