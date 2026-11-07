@@ -34,7 +34,7 @@ export function attachSignalingServer(httpServer: HttpServer): void {
 
   httpServer.on('upgrade', (req, socket, head) => {
     const url = new URL(req.url || '', 'http://internal');
-    if (url.pathname !== SIGNALING_PATH) {
+    if (url.pathname !== SIGNALING_PATH && url.pathname !== '/api/ws/signaling' && url.pathname !== '/api/signaling') {
       socket.destroy();
       return;
     }
