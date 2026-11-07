@@ -36,30 +36,34 @@ Internet (HTTPS)
 
 ```
 WL_Playstore/
+├── project_document.md   # Comprehensive Executive Architecture & Scaling Proposal
 ├── docs/                 # Documentation & security architecture specifications
+│   ├── project_document.md               # Mirror of full architecture proposal
 │   ├── SCALE_AND_PERFORMANCE.md          # Concurrency, scaling & high-availability blueprint
 │   ├── SECURITY_OVERVIEW.md               # Enterprise Security Architecture & controls
 │   ├── Private_App_Store_Architecture.docx # Full original architecture specification
 │   └── extracted_doc.txt                  # Text version of architecture spec
 ├── backend/              # Node.js + Express + TypeScript API
-│   ├── prisma/           # Database schema + seed data
+│   ├── prisma/           # Database schema + seed data + demo assets
 │   └── src/
-│       ├── routes/       # auth, catalog, apps, events, analytics
+│       ├── routes/       # auth, catalog, apps, events, analytics, screenshare
 │       ├── middleware/   # JWT + terminal API key auth
-│       └── services/     # MinIO APK storage
+│       └── services/     # MinIO APK storage, WebRTC signaling hub
 ├── admin-portal/         # React + Vite + TypeScript Admin UI
 │   └── src/
-│       └── pages/        # Dashboard, Apps, Customers, Terminals, Map, Downloads
-├── android/              # Kotlin Android client app
+│       └── pages/        # Dashboard, Apps, Customers, Terminals, Map, RemoteScreen, Ads
+├── android/              # Kotlin Android POS client app (WL BizStore)
 │   └── app/src/main/
 │       ├── java/com/worldline/wlstore/
-│       │   ├── ui/       # Enrollment, Catalog, AppDetail activities
+│       │   ├── ui/       # Setup, Catalog, AppDetail, Ads
 │       │   ├── data/     # Retrofit API, models
-│       │   └── service/  # GPS telemetry, APK install
+│       │   ├── screenshare/# WebRTC screen capture & Accessibility touch
+│       │   └── service/  # GPS telemetry, APK silent install, command worker
 │       └── res/layout/
-├── nginx/                # Production reverse proxy config
-├── scripts/              # Deployment automation
-└── docker-compose.yml    # Full stack orchestration
+├── wl_test_app/          # Standalone verification test app (WL Test APP)
+├── nginx/                # Production reverse proxy config (SSL, WebRTC, rate limits)
+├── scripts/              # Deployment & operations automation (deploy, healthcheck, backup)
+└── docker-compose.yml    # Full stack orchestration (PostgreSQL, MinIO, Backend, Portal, coturn)
 ```
 
 ## 🚀 Quick Start (Local Development)
@@ -230,7 +234,7 @@ Launch
 ## 🌍 Demo Data (after seed)
 
 **Customers**: Retailer Plus India · HDFC Merchant Services · BlueDart Logistics
-**Apps**: WL Pay Terminal · EMV Kernel Suite · Device Configurator · Sales Analytics · TamperGuard
+**Apps**: WL Pay Terminal (real installable APK) · WL Test APP (real installable APK) · EMV Kernel Suite · Device Configurator · Sales Analytics · TamperGuard
 **Terminals**: 10 terminals across Mumbai, Delhi, Bangalore, Chennai, Hyderabad, Kolkata, Pune
 **Events**: 60 download events with GPS coordinates
 
