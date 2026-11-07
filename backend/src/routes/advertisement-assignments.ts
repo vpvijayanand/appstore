@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient, AssignmentScope } from '@prisma/client';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth';
+import { getAdvertisementDeliveryStatus } from '../services/ad-delivery';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -118,6 +119,20 @@ router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
     return res.json({ message: 'Assignment removed' });
   } catch {
     return res.status(500).json({ error: 'Delete failed' });
+  }
+});
+
+// ── Per-terminal delivery status for one advertisement ───────────────────────
+// Powers the "Delivery status" panel: for every terminal this ad targets, where it
+// is in Assigned -> Schedule live -> Delivered to terminal -> Shown on screen.
+router.get('/delivery/:advertisementId', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const status = await getAdvertisementDeliveryStatus(req.params.advertisementId);
+    if (!status) return res.status(404).json({ error: 'Advertisement not found' });
+    return res.json(status);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Failed to compute delivery status' });
   }
 });
 

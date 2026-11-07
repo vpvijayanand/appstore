@@ -47,14 +47,43 @@ app.use(cors({
 }));
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
+// Admin/browser traffic and unauthenticated calls: strict per-IP limit.
+// Terminals poll for commands every ~10 s while WL BizStore is running (~90
+// requests per 15 min, plus catalog/ads/events), and many terminals can share
+// one store NAT IP, so requests carrying an X-Terminal-Key are limited per
+// terminal key instead of per IP, with a generous per-IP backstop to bound abuse
+// from forged keys (invalid keys are rejected by requireTerminal anyway).
+const WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000');
+const hasTerminalKey = (req: express.Request) => typeof req.headers['x-terminal-key'] === 'string' && (req.headers['x-terminal-key'] as string).length > 0;
+
 const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
+  windowMs: WINDOW_MS,
   max: parseInt(process.env.RATE_LIMIT_MAX || '200'),
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => hasTerminalKey(req),
+  message: { error: 'Too many requests, please try again later.' },
+});
+const terminalLimiter = rateLimit({
+  windowMs: WINDOW_MS,
+  max: parseInt(process.env.TERMINAL_RATE_LIMIT_MAX || '1500'),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => !hasTerminalKey(req),
+  keyGenerator: (req) => `terminal:${req.headers['x-terminal-key']}`,
+  message: { error: 'Too many requests from this terminal, please slow down.' },
+});
+const terminalIpBackstop = rateLimit({
+  windowMs: WINDOW_MS,
+  max: parseInt(process.env.TERMINAL_IP_RATE_LIMIT_MAX || '30000'),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => !hasTerminalKey(req),
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use(limiter);
+app.use(terminalIpBackstop);
+app.use(terminalLimiter);
 
 // ── Request Parsing ───────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));

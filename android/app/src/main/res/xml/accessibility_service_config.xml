@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Config for RemoteControlAccessibilityService. canPerformGestures is the
-     key flag — this service doesn't need to observe UI events, only dispatch
-     tap/swipe gestures requested by the admin portal during screen share. -->
+<!-- Config for RemoteControlAccessibilityService.
+     - canPerformGestures: tap / long-press / swipe / scroll dispatch from the admin portal.
+     - canRetrieveWindowContent: needed to find the focused input field so the admin can
+       type text, and to perform the Back/Home/Recents global actions reliably.
+     The service reacts to no UI events itself, hence the narrow event mask. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityEventTypes="typeViewFocused|typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagDefault"
     android:canPerformGestures="true"
-    android:canRetrieveWindowContent="false"
+    android:canRetrieveWindowContent="true"
     android:notificationTimeout="100"
     android:description="@string/accessibility_service_description" />

@@ -13,9 +13,13 @@ const prisma = new PrismaClient();
 // CUSTOMER/TERMINAL/GROUP union pattern as catalog.ts's app resolution — a
 // terminal sees its customer-wide ads, its own device-specific ads, and any
 // ads assigned to a group it's a member of.
+//
+// Side effect: records that THIS terminal has fetched each returned ad
+// (AdvertisementDelivery.lastFetchedAt) so the admin portal can show the ad as
+// "delivered to terminal" rather than "waiting for terminal".
 router.get('/pending', requireTerminal, async (req: Request, res: Response) => {
   try {
-    const { customerId, terminalMasterId } = req.terminal!;
+    const { customerId, terminalMasterId, dbId } = req.terminal!;
     const now = new Date();
 
     // A device's own terminal master may belong to one or more named groups
@@ -51,6 +55,17 @@ router.get('/pending', requireTerminal, async (req: Request, res: Response) => {
     const seen = new Map<string, (typeof assignments)[number]['advertisement']>();
     for (const a of assignments) seen.set(a.advertisement.id, a.advertisement);
 
+    // Record delivery (best-effort — never fail the poll because of tracking).
+    await Promise.all(
+      Array.from(seen.keys()).map((advertisementId) =>
+        prisma.advertisementDelivery.upsert({
+          where: { advertisementId_terminalId: { advertisementId, terminalId: dbId } },
+          update: { lastFetchedAt: now },
+          create: { advertisementId, terminalId: dbId, firstFetchedAt: now, lastFetchedAt: now },
+        }).catch((err) => console.warn('[ads] delivery upsert failed:', err?.message))
+      )
+    );
+
     const advertisements = await Promise.all(
       Array.from(seen.values()).map(async (ad) => ({
         id: ad.id,
@@ -70,6 +85,33 @@ router.get('/pending', requireTerminal, async (req: Request, res: Response) => {
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: 'Failed to resolve advertisements' });
+  }
+});
+
+// ── Report That An Ad Was Actually Displayed ─────────────────────────────────
+// Called by the Android app each time AdvertisementActivity puts an ad on screen.
+router.post('/:id/shown', requireTerminal, async (req: Request, res: Response) => {
+  try {
+    const { dbId } = req.terminal!;
+    const advertisementId = req.params.id;
+    const ad = await prisma.advertisement.findUnique({ where: { id: advertisementId }, select: { id: true } });
+    if (!ad) return res.status(404).json({ error: 'Advertisement not found' });
+
+    const now = new Date();
+    await prisma.advertisementDelivery.upsert({
+      where: { advertisementId_terminalId: { advertisementId, terminalId: dbId } },
+      update: { lastShownAt: now, firstShownAt: undefined, showCount: { increment: 1 } },
+      create: { advertisementId, terminalId: dbId, firstFetchedAt: now, lastFetchedAt: now, firstShownAt: now, lastShownAt: now, showCount: 1 },
+    });
+    // firstShownAt only set once.
+    await prisma.advertisementDelivery.updateMany({
+      where: { advertisementId, terminalId: dbId, firstShownAt: null },
+      data: { firstShownAt: now },
+    });
+    return res.json({ message: 'Recorded' });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Failed to record ad display' });
   }
 });
 

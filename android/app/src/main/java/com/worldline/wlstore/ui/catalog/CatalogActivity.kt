@@ -22,6 +22,7 @@ import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AppInfo
 import com.worldline.wlstore.data.model.CategoryWithApps
 import com.worldline.wlstore.service.AdvertisementManager
+import com.worldline.wlstore.service.CommandPollService
 import com.worldline.wlstore.service.CommandPollWorker
 import com.worldline.wlstore.service.InstalledAppsHelper
 import com.worldline.wlstore.service.RemoteCommandExecutor
@@ -171,6 +172,7 @@ class CatalogActivity : AppCompatActivity() {
             // Keystore unavailable — proceed anyway; in-memory key is cleared below.
         }
         CommandPollWorker.cancel(this)
+        CommandPollService.stop(this)
         ApiClient.clearApiKey()
 
         val intent = Intent(this, EnrollmentActivity::class.java)

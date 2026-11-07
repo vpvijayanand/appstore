@@ -102,6 +102,11 @@ export const terminalsApi = {
   sendCommand: (id: string, type: string) =>
     api.post(`/terminals/${id}/commands`, { type }),
   getCommands: (id: string) => api.get(`/terminals/${id}/commands`),
+  getActiveCommands: () => api.get('/terminals/commands/active'),
+  getCommand: (terminalId: string, commandId: string) =>
+    api.get(`/terminals/${terminalId}/commands/${commandId}`),
+  getActivity: (terminalId: string) =>
+    api.get(`/terminals/${terminalId}/activity`),
 };
 
 // ── Remote Screen Share (view/control a terminal's screen) ───────────────────
@@ -173,6 +178,8 @@ export const advertisementsApi = {
   update: (id: string, data: Record<string, unknown>) =>
     api.patch(`/advertisements/${id}`, data),
   delete: (id: string) => api.delete(`/advertisements/${id}`),
+  getDelivery: (id: string) =>
+    api.get(`/advertisement-assignments/delivery/${id}`),
 };
 
 // ── Advertisement Assignments (Ad <-> Customer/Terminal/Group mapping) ───────
@@ -184,6 +191,8 @@ export const advertisementAssignmentsApi = {
     replaceExisting?: boolean;
   }) => api.post('/advertisement-assignments/bulk', payload),
   delete: (id: string) => api.delete(`/advertisement-assignments/${id}`),
+  getDelivery: (advertisementId: string) =>
+    api.get(`/advertisement-assignments/delivery/${advertisementId}`),
 };
 
 export default api;

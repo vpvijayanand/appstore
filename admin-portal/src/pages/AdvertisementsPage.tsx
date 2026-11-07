@@ -3,6 +3,7 @@ import { advertisementsApi, advertisementAssignmentsApi, customersApi, terminalM
 import {
   Megaphone, Plus, Trash2, Loader2, CheckCircle, XCircle, Image as ImageIcon,
   Video, FileCode, Users, HardDrive, Share2, Clock, Settings as SettingsIcon, Boxes,
+  Eye, CheckCircle2, RefreshCw,
 } from 'lucide-react';
 
 interface Advertisement {
@@ -84,6 +85,37 @@ export default function AdvertisementsPage() {
   // regardless of which ad is shown — configurable instead of hardcoded).
   const [popupIntervalHours, setPopupIntervalHours] = useState<number | ''>('');
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Delivery status modal
+  const [deliveryModalAd, setDeliveryModalAd] = useState<Advertisement | null>(null);
+  const [deliveryData, setDeliveryData] = useState<any>(null);
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
+
+  const openDeliveryModal = async (ad: Advertisement) => {
+    setDeliveryModalAd(ad);
+    setDeliveryLoading(true);
+    try {
+      const res = await advertisementsApi.getDelivery(ad.id);
+      setDeliveryData(res.data);
+    } catch (e: any) {
+      alert('Failed to load delivery status: ' + (e.response?.data?.error || e.message));
+    } finally {
+      setDeliveryLoading(false);
+    }
+  };
+
+  const refreshDeliveryModal = async () => {
+    if (!deliveryModalAd) return;
+    setDeliveryLoading(true);
+    try {
+      const res = await advertisementsApi.getDelivery(deliveryModalAd.id);
+      setDeliveryData(res.data);
+    } catch {
+      // silent
+    } finally {
+      setDeliveryLoading(false);
+    }
+  };
 
   const load = () => {
     setLoading(true);
@@ -301,6 +333,15 @@ export default function AdvertisementsPage() {
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button className="btn btn-secondary btn-sm" onClick={() => toggleActive(ad)} title={ad.isActive ? 'Disable' : 'Enable'}>
                           {ad.isActive ? <XCircle size={13} /> : <CheckCircle size={13} />}
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => openDeliveryModal(ad)}
+                          title="Delivery Status & Terminal Progress"
+                          style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Eye size={12} />
+                          Delivery
                         </button>
                         <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openAssignModal(ad)} title="Assign">
                           <Share2 size={13} />
@@ -585,6 +626,237 @@ export default function AdvertisementsPage() {
               <button className="btn btn-primary" disabled={submitting || targetIds.length === 0} onClick={submitAssign}>
                 {submitting ? <Loader2 size={15} className="spinner" /> : <Share2 size={15} />}
                 {submitting ? 'Assigning...' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delivery Status Modal ────────────────────────────────────────── */}
+      {deliveryModalAd && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => e.target === e.currentTarget && setDeliveryModalAd(null)}
+        >
+          <div className="modal" style={{ width: '840px', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">Delivery Status — {deliveryModalAd.title}</h3>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Mode: {deliveryModalAd.displayMode} • Type: {deliveryModalAd.type} • Duration: {deliveryModalAd.durationSeconds}s
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={refreshDeliveryModal}
+                  disabled={deliveryLoading}
+                  title="Refresh"
+                >
+                  <RefreshCw size={13} className={deliveryLoading ? 'spinner' : ''} />
+                </button>
+                <button
+                  className="btn btn-secondary btn-sm btn-icon"
+                  onClick={() => setDeliveryModalAd(null)}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {deliveryLoading && !deliveryData ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '50px' }}>
+                <Loader2 size={28} className="spinner" />
+              </div>
+            ) : deliveryData ? (
+              <div>
+                {/* Summary Badges Grid */}
+                {deliveryData.summary && (
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                      gap: '10px',
+                      marginBottom: '18px',
+                    }}
+                  >
+                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Target Devices</div>
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: '#0f172a' }}>{deliveryData.summary.totalTargetTerminals}</div>
+                    </div>
+                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Waiting for Device</div>
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: '#f59e0b' }}>{deliveryData.summary.waitingForDevice}</div>
+                    </div>
+                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Delivered</div>
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: '#0284c7' }}>{deliveryData.summary.delivered}</div>
+                    </div>
+                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Shown on Screen</div>
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: '#16a34a' }}>{deliveryData.summary.shown}</div>
+                    </div>
+                    <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Cooldown Active</div>
+                      <div style={{ fontSize: '18px', fontWeight: 700, color: '#8b5cf6' }}>{deliveryData.summary.cooldownActive}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Target Device Breakdown */}
+                <h4 style={{ fontSize: '13.5px', fontWeight: 600, marginBottom: '12px', color: '#1e293b' }}>
+                  Target Terminals ({deliveryData.targets?.length || 0})
+                </h4>
+
+                {(!deliveryData.targets || deliveryData.targets.length === 0) ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                    This advertisement has not been assigned to any terminals or customers yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {deliveryData.targets.map((tgt: any) => {
+                      const st = tgt.status;
+                      const isEnrolled = !!tgt.enrolledTerminal;
+                      const isOnline = tgt.enrolledTerminal?.isOnline;
+
+                      return (
+                        <div
+                          key={tgt.terminalMasterId}
+                          style={{
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            padding: '14px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '13.5px' }}>
+                                  {tgt.serialNo}
+                                </span>
+                                {tgt.tid && (
+                                  <span style={{ fontSize: '11.5px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
+                                    (TID: {tgt.tid})
+                                  </span>
+                                )}
+                                <span style={{ fontSize: '12px', color: '#64748b' }}>• {tgt.customerName}</span>
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                                {isEnrolled ? (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <span
+                                      style={{
+                                        width: '6px',
+                                        height: '6px',
+                                        borderRadius: '50%',
+                                        background: isOnline ? '#16a34a' : '#94a3b8',
+                                      }}
+                                    />
+                                    Enrolled: {tgt.enrolledTerminal.terminalId} {isOnline ? '(Online)' : '(Idle)'}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: '#f59e0b' }}>Device not yet enrolled into WL BizStore</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <span
+                              className={`badge badge-${
+                                st.state === 'SHOWN'
+                                  ? 'success'
+                                  : st.state === 'DELIVERED'
+                                  ? 'info'
+                                  : st.state === 'WAITING_FOR_DEVICE'
+                                  ? 'warning'
+                                  : 'default'
+                              }`}
+                            >
+                              {st.label}
+                            </span>
+                          </div>
+
+                          {/* Detail / Status Explanation */}
+                          <p style={{ margin: '6px 0 10px', fontSize: '12px', color: '#475569', lineHeight: '1.5' }}>
+                            {st.detail}
+                          </p>
+
+                          {/* Step Progress Line */}
+                          {st.steps && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: '#fff',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid #e2e8f0',
+                                marginBottom: '8px',
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              {st.steps.map((step: any, idx: number) => (
+                                <div key={step.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11.5px' }}>
+                                  <span
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      color:
+                                        step.state === 'done'
+                                          ? '#16a34a'
+                                          : step.state === 'active'
+                                          ? '#0284c7'
+                                          : '#94a3b8',
+                                      fontWeight: step.state === 'active' ? 600 : 500,
+                                    }}
+                                  >
+                                    {step.state === 'done' ? (
+                                      <CheckCircle2 size={13} />
+                                    ) : step.state === 'active' ? (
+                                      <Loader2 size={12} className="spinner" />
+                                    ) : (
+                                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#cbd5e1' }} />
+                                    )}
+                                    {step.label}
+                                  </span>
+                                  {idx < st.steps.length - 1 && (
+                                    <span style={{ color: '#cbd5e1', margin: '0 2px' }}>&rarr;</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Bottom Stats */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
+                            <div>
+                              {tgt.delivery?.showCount > 0 ? (
+                                <span>
+                                  Shown <strong>{tgt.delivery.showCount}</strong> time(s) • Last shown: {new Date(tgt.delivery.lastShownAt).toLocaleString()}
+                                </span>
+                              ) : (
+                                <span>Not yet displayed on screen</span>
+                              )}
+                            </div>
+                            {st.eta && (
+                              <div style={{ color: '#0284c7', fontWeight: 600 }}>
+                                Next window: {new Date(st.eta).toLocaleTimeString()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button className="btn btn-secondary" onClick={() => setDeliveryModalAd(null)}>
+                Close
               </button>
             </div>
           </div>

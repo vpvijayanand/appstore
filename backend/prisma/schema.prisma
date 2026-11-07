@@ -229,6 +229,7 @@ model Terminal {
   terminalMaster TerminalMaster? @relation(fields: [terminalMasterId], references: [id])
   deviceCommands DeviceCommand[]
   screenShareSessions ScreenShareSession[]
+  advertisementDeliveries AdvertisementDelivery[]
 
   @@map("terminals")
 }
@@ -250,6 +251,12 @@ model DeviceCommand {
   acknowledgedAt DateTime?           @map("acknowledged_at")
   completedAt    DateTime?           @map("completed_at")
   errorMessage   String?             @map("error_message")
+  // Fine-grained, device-reported progress ("RECEIVED", "CONSENT_PENDING",
+  // "REBOOTING", "BACK_ONLINE", ...) layered on top of the coarse status so the
+  // admin portal can show a step-by-step timeline. See services/command-timeline.ts.
+  stage          String?
+  stageDetail    String?             @map("stage_detail")
+  stageUpdatedAt DateTime?           @map("stage_updated_at")
 
   @@index([terminalId, status])
   @@map("device_commands")
@@ -371,8 +378,30 @@ model Advertisement {
   createdAt       DateTime                 @default(now()) @map("created_at")
   updatedAt       DateTime                 @updatedAt @map("updated_at")
   assignments     AdvertisementAssignment[]
+  deliveries      AdvertisementDelivery[]
 
   @@map("advertisements")
+}
+
+// ─── Advertisement Delivery (per ad, per terminal) ──────────────────────────
+// Tracks whether a terminal has actually fetched an ad (first/last poll that
+// returned it) and actually displayed it (reported by the Android app), so the
+// admin portal can show "waiting for device / delivered / shown N times".
+model AdvertisementDelivery {
+  id              String        @id @default(uuid())
+  advertisementId String        @map("advertisement_id")
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  terminalId      String        @map("terminal_id")
+  terminal        Terminal      @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  firstFetchedAt  DateTime      @default(now()) @map("first_fetched_at")
+  lastFetchedAt   DateTime      @default(now()) @map("last_fetched_at")
+  firstShownAt    DateTime?     @map("first_shown_at")
+  lastShownAt     DateTime?     @map("last_shown_at")
+  showCount       Int           @default(0) @map("show_count")
+
+  @@unique([advertisementId, terminalId])
+  @@index([terminalId])
+  @@map("advertisement_deliveries")
 }
 
 // ─── App Settings (singleton: global device-behavior config) ────────────────

@@ -21,6 +21,7 @@ import com.google.gson.JsonObject
 import com.worldline.wlstore.BuildConfig
 import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
+import com.worldline.wlstore.data.model.CommandProgressRequest
 import com.worldline.wlstore.data.model.CompleteCommandRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -166,6 +167,8 @@ class ScreenShareForegroundService : Service() {
         val track = factory.createVideoTrack("wl_screen0", source)
         videoTrack = track
 
+        reportProgress("CAPTURING", "Capturing terminal display")
+
         serviceScope.launch {
             val iceServers = fetchIceServers()
             setupPeerConnection(factory, track, iceServers, sessionId)
@@ -251,7 +254,13 @@ class ScreenShareForegroundService : Service() {
             override fun onConnectionChange(newState: PeerConnection.PeerConnectionState?) {
                 Log.i(TAG, "Peer connection state: $newState")
                 when (newState) {
-                    PeerConnection.PeerConnectionState.CONNECTED -> reportCommandOutcome("COMPLETED")
+                    PeerConnection.PeerConnectionState.CONNECTING -> {
+                        reportProgress("CONNECTING", "Establishing WebRTC peer connection")
+                    }
+                    PeerConnection.PeerConnectionState.CONNECTED -> {
+                        reportProgress("STREAMING", "Screen share video active")
+                        reportCommandOutcome("COMPLETED")
+                    }
                     PeerConnection.PeerConnectionState.FAILED -> {
                         reportCommandOutcome("FAILED", "WebRTC connection failed")
                         stopSelf()
@@ -321,6 +330,35 @@ class ScreenShareForegroundService : Service() {
                 obj.get("y2")?.asFloat ?: return,
                 obj.get("durationMs")?.asLong ?: 200L,
             )
+            "long_press" -> service.performLongPress(
+                obj.get("x")?.asFloat ?: return,
+                obj.get("y")?.asFloat ?: return,
+                obj.get("durationMs")?.asLong ?: 500L,
+            )
+            "nav" -> {
+                val action = obj.get("action")?.asString ?: return
+                service.performNav(action)
+            }
+            "text" -> {
+                val text = obj.get("text")?.asString ?: return
+                val append = obj.get("append")?.asBoolean ?: true
+                service.inputText(text, append)
+            }
+            "key" -> {
+                val key = obj.get("key")?.asString ?: return
+                service.pressKey(key)
+            }
+        }
+    }
+
+    private fun reportProgress(stage: String, detail: String? = null) {
+        val id = commandId ?: return
+        serviceScope.launch {
+            try {
+                ApiClient.service.reportCommandProgress(id, CommandProgressRequest(stage, detail))
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to report screen-share progress: ${e.message}")
+            }
         }
     }
 

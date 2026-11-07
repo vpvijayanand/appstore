@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.lifecycle.lifecycleScope
 import androidx.appcompat.app.AppCompatActivity
 import com.worldline.wlstore.service.AdvertisementManager
+import com.worldline.wlstore.service.CommandPollService
 import com.worldline.wlstore.ui.advertisement.AdvertisementActivity
 import com.worldline.wlstore.ui.enrollment.EnrollmentActivity
 import kotlinx.coroutines.launch
@@ -31,6 +32,11 @@ class WLStoreApplication : Application() {
                 // Don't trigger from the login screen (not enrolled yet) or from the
                 // advertisement popup itself (would immediately re-check on its own resume).
                 if (activity is EnrollmentActivity || activity is AdvertisementActivity) return
+
+                // Keep the always-on remote-command poll alive (every ~10 s) so admin-portal actions
+                // (remote screen, restart app/device) reach this terminal within seconds. The service
+                // stops itself if the terminal isn't enrolled.
+                CommandPollService.start(activity.applicationContext)
                 if (activity is AppCompatActivity) {
                     activity.lifecycleScope.launch {
                         AdvertisementManager.checkAndMaybeShowPopups(activity)

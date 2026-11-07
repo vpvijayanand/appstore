@@ -46,9 +46,16 @@ interface StoreApiService {
     @POST("terminal/commands/{id}/complete")
     suspend fun completeCommand(@Path("id") id: String, @Body body: CompleteCommandRequest): Response<Unit>
 
+    @POST("terminal/commands/{id}/progress")
+    suspend fun reportCommandProgress(@Path("id") id: String, @Body body: CommandProgressRequest): Response<Unit>
+
     // Advertisements (admin -> device): image/video/HTML promos with a schedule
     @GET("terminal/advertisements/pending")
     suspend fun getPendingAdvertisements(): Response<PendingAdvertisementsResponse>
+
+    // Tells the backend this ad was actually put on screen (delivery tracking in the admin portal)
+    @POST("terminal/advertisements/{id}/shown")
+    suspend fun reportAdvertisementShown(@Path("id") id: String): Response<Unit>
 
     // Remote screen share — STUN/TURN server list for this terminal's RTCPeerConnection
     @GET("terminal/screen-share/ice-servers")

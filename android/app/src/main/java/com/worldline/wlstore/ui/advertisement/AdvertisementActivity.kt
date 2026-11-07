@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.webkit.WebView
 import android.widget.ImageButton
@@ -12,13 +13,16 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
 import com.worldline.wlstore.R
+import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AdvertisementDto
+import kotlinx.coroutines.launch
 
 /**
  * Full-screen display for a queue of advertisements pushed from the admin
@@ -80,6 +84,14 @@ class AdvertisementActivity : AppCompatActivity() {
         webView.visibility = View.GONE
         progressBar.visibility = View.VISIBLE
         titleView.text = ad.title
+
+        lifecycleScope.launch {
+            try {
+                ApiClient.service.reportAdvertisementShown(ad.id)
+            } catch (e: Exception) {
+                Log.w("AdvertisementActivity", "Failed to report ad shown: ${e.message}")
+            }
+        }
 
         // Screensaver ads dismiss on any touch — mimics a classic screensaver.
         root.setOnClickListener {

@@ -141,7 +141,8 @@ data class CustomerInfo(
 // ── Remote Device Commands (admin → Android, e.g. force restart) ────────────
 
 data class PendingCommandsResponse(
-    val commands: List<DeviceCommandDto>
+    val commands: List<DeviceCommandDto>,
+    val pollIntervalSec: Int? = null
 )
 
 data class DeviceCommandDto(
@@ -152,7 +153,15 @@ data class DeviceCommandDto(
 
 data class CompleteCommandRequest(
     val status: String,        // COMPLETED | FAILED
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val stage: String? = null, // final stage, e.g. BACK_ONLINE / STREAMING
+    val detail: String? = null
+)
+
+/** Intermediate progress step for an in-flight command (shown as a timeline in the admin portal). */
+data class CommandProgressRequest(
+    val stage: String,         // RESTARTING | REBOOTING | CONSENT_PENDING | CONNECTING | STREAMING | ...
+    val detail: String? = null
 )
 
 // ── Advertisements (admin → Android: popup/screensaver promos) ──────────────

@@ -50,7 +50,7 @@ export async function requireTerminal(req: Request, res: Response, next: NextFun
 
   const terminal = await prisma.terminal.findUnique({
     where: { apiKey },
-    select: { id: true, terminalId: true, customerId: true, status: true, terminalMasterId: true },
+    select: { id: true, terminalId: true, customerId: true, status: true, terminalMasterId: true, lastSeenAt: true },
   });
 
   if (!terminal) {
@@ -61,11 +61,14 @@ export async function requireTerminal(req: Request, res: Response, next: NextFun
     return res.status(403).json({ error: `Terminal is ${terminal.status.toLowerCase()}` });
   }
 
-  // Update last seen
-  await prisma.terminal.update({
-    where: { id: terminal.id },
-    data: { lastSeenAt: new Date() },
-  });
+  // Update last seen. Terminals now poll every ~10 s, so skip the write when the
+  // stored value is already fresh (<5 s) to avoid one UPDATE per request.
+  if (!terminal.lastSeenAt || Date.now() - terminal.lastSeenAt.getTime() > 5000) {
+    await prisma.terminal.update({
+      where: { id: terminal.id },
+      data: { lastSeenAt: new Date() },
+    });
+  }
 
   req.terminal = {
     dbId: terminal.id,

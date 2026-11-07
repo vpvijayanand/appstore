@@ -26,7 +26,7 @@ router.post('/:id/screen-share/sessions', requireAdmin, async (req: Request, res
   const session = await prisma.screenShareSession.create({
     data: { terminalId: terminal.id, createdById: req.admin!.adminId },
   });
-  await prisma.deviceCommand.create({
+  const command = await prisma.deviceCommand.create({
     data: {
       terminalId: terminal.id,
       type: 'START_SCREEN_SHARE',
@@ -35,10 +35,10 @@ router.post('/:id/screen-share/sessions', requireAdmin, async (req: Request, res
     },
   });
   await prisma.adminAuditLog.create({
-    data: { adminId: req.admin!.adminId, action: 'START_SCREEN_SHARE', entityType: 'Terminal', entityId: terminal.id, details: { sessionId: session.id } },
+    data: { adminId: req.admin!.adminId, action: 'START_SCREEN_SHARE', entityType: 'Terminal', entityId: terminal.id, details: { sessionId: session.id, commandId: command.id } },
   });
 
-  return res.json({ session, iceServers: getIceServers(`admin:${req.admin!.adminId}`) });
+  return res.json({ session, commandId: command.id, iceServers: getIceServers(`admin:${req.admin!.adminId}`) });
 });
 
 // Poll session status (PENDING until the device connects to signaling, ACTIVE
