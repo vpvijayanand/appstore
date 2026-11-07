@@ -33,7 +33,22 @@ class RemoteControlAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Not used — this service only performs actions, it doesn't react to events.
+        if (!ScreenShareConsentActivity.awaitingConsent) return
+        val pkg = event?.packageName?.toString() ?: return
+        if (pkg.contains("systemui", ignoreCase = true) || pkg.contains("mediaprojection", ignoreCase = true)) {
+            val root = rootInActiveWindow ?: return
+            try {
+                val byId = root.findAccessibilityNodeInfosByViewId("android:id/button1")
+                val target = byId?.firstOrNull { it.isClickable }
+                    ?: root.findAccessibilityNodeInfosByText("Start now")?.firstOrNull { it.isClickable }
+                if (target != null) {
+                    Log.i(TAG, "Auto-accepting MediaProjection consent dialog via AccessibilityService")
+                    target.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Auto-accept check failed: ${e.message}")
+            }
+        }
     }
 
     override fun onInterrupt() {}

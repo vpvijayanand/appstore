@@ -115,7 +115,7 @@ class ScreenShareForegroundService : Service() {
             .setOngoing(true)
             .build()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceCompat.startForeground(
                 this, NOTIFICATION_ID, notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
@@ -125,53 +125,56 @@ class ScreenShareForegroundService : Service() {
         }
     }
 
-    private fun startSharing(sessionId: String, resultCode: Int, resultData: Intent) {
-        val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        val projection = projectionManager.getMediaProjection(resultCode, resultData)
-        mediaProjection = projection
-        projection.registerCallback(object : MediaProjection.Callback() {
-            override fun onStop() {
-                Log.i(TAG, "MediaProjection stopped")
-                stopSelf()
+    private fun startSharing(sessionId: String, @Suppress("UNUSED_PARAMETER") resultCode: Int, resultData: Intent) {
+        // Tear down any prior session if startSharing is called while already active.
+        teardown()
+
+        try {
+            val egl = EglBase.create()
+            eglBase = egl
+
+            val factory = PeerConnectionFactory.builder()
+                .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, true))
+                .setVideoDecoderFactory(DefaultVideoDecoderFactory(egl.eglBaseContext))
+                .createPeerConnectionFactory()
+            peerConnectionFactory = factory
+
+            val source = factory.createVideoSource(true)
+            videoSource = source
+
+            // ScreenCapturerAndroid internally calls MediaProjectionManager.getMediaProjection
+            // using resultData. Do not call getMediaProjection a second time outside of it,
+            // as a second projection revokes the first on Android 10+.
+            val capturer = ScreenCapturerAndroid(resultData, object : MediaProjection.Callback() {
+                override fun onStop() {
+                    Log.i(TAG, "Screen capture MediaProjection stopped")
+                    stopSelf()
+                }
+            })
+            videoCapturer = capturer
+
+            val helper = SurfaceTextureHelper.create("WLScreenCaptureThread", egl.eglBaseContext)
+            surfaceTextureHelper = helper
+            capturer.initialize(helper, applicationContext, source.capturerObserver)
+
+            val metrics = DisplayMetrics()
+            @Suppress("DEPRECATION")
+            (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
+            capturer.startCapture(metrics.widthPixels, metrics.heightPixels, SCREEN_FPS)
+
+            val track = factory.createVideoTrack("wl_screen0", source)
+            videoTrack = track
+
+            reportProgress("CAPTURING", "Capturing terminal display (${metrics.widthPixels}x${metrics.heightPixels})")
+
+            serviceScope.launch {
+                val iceServers = fetchIceServers()
+                setupPeerConnection(factory, track, iceServers, sessionId)
             }
-        }, null)
-
-        val egl = EglBase.create()
-        eglBase = egl
-
-        val factory = PeerConnectionFactory.builder()
-            .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, true))
-            .setVideoDecoderFactory(DefaultVideoDecoderFactory(egl.eglBaseContext))
-            .createPeerConnectionFactory()
-        peerConnectionFactory = factory
-
-        val source = factory.createVideoSource(true)
-        videoSource = source
-
-        val capturer = ScreenCapturerAndroid(resultData, object : MediaProjection.Callback() {
-            override fun onStop() {
-                Log.i(TAG, "Screen capture stopped")
-            }
-        })
-        videoCapturer = capturer
-
-        val helper = SurfaceTextureHelper.create("WLScreenCaptureThread", egl.eglBaseContext)
-        surfaceTextureHelper = helper
-        capturer.initialize(helper, applicationContext, source.capturerObserver)
-
-        val metrics = DisplayMetrics()
-        @Suppress("DEPRECATION")
-        (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
-        capturer.startCapture(metrics.widthPixels, metrics.heightPixels, SCREEN_FPS)
-
-        val track = factory.createVideoTrack("wl_screen0", source)
-        videoTrack = track
-
-        reportProgress("CAPTURING", "Capturing terminal display")
-
-        serviceScope.launch {
-            val iceServers = fetchIceServers()
-            setupPeerConnection(factory, track, iceServers, sessionId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start screen sharing: ${e.message}", e)
+            reportCommandOutcome("FAILED", "Failed to start screen capture: ${e.message}")
+            stopSelf()
         }
     }
 
@@ -381,16 +384,27 @@ class ScreenShareForegroundService : Service() {
     }
 
     private fun teardown() {
-        videoCapturer?.stopCapture()
-        videoCapturer?.dispose()
-        videoSource?.dispose()
-        surfaceTextureHelper?.dispose()
-        dataChannel?.close()
-        peerConnection?.close()
-        peerConnectionFactory?.dispose()
-        eglBase?.release()
-        signalingClient?.close()
-        mediaProjection?.stop()
+        runCatching { signalingClient?.close() }
+        signalingClient = null
+        runCatching { dataChannel?.close() }
+        dataChannel = null
+        runCatching { videoCapturer?.stopCapture() }
+        runCatching { videoCapturer?.dispose() }
+        videoCapturer = null
+        runCatching { videoTrack?.dispose() }
+        videoTrack = null
+        runCatching { videoSource?.dispose() }
+        videoSource = null
+        runCatching { surfaceTextureHelper?.dispose() }
+        surfaceTextureHelper = null
+        runCatching { peerConnection?.close() }
+        peerConnection = null
+        runCatching { peerConnectionFactory?.dispose() }
+        peerConnectionFactory = null
+        runCatching { eglBase?.release() }
+        eglBase = null
+        runCatching { mediaProjection?.stop() }
+        mediaProjection = null
     }
 
     override fun onDestroy() {
