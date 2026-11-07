@@ -99,3 +99,4 @@ if [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "101" ]; then
 else
     echo "⚠️  Note: Received status $HTTP_STATUS (expected 401 Unauthorized or 101 Switching Protocols when unauthenticated)."
 fi
+
