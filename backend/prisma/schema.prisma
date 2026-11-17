@@ -251,6 +251,8 @@ model RemoteAccessRequest {
   rejectedById   String?                   @map("rejected_by_id")
   rejectedAt     DateTime?                 @map("rejected_at")
   rejectionReason String?                  @map("rejection_reason")
+  consumedAt     DateTime?                 @map("consumed_at")
+  consumedSessionId String?                @map("consumed_session_id")
 
   @@index([terminalId, status])
   @@index([status, requestedAt])

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   Loader2,
@@ -60,6 +60,7 @@ function getSignalingWsUrl(sessionId: string, token: string): string {
 export default function RemoteScreenPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [status, setStatus] = useState<Status>('starting');
   const [errorMsg, setErrorMsg] = useState<string>('');
@@ -136,7 +137,14 @@ export default function RemoteScreenPage() {
 
     (async () => {
       try {
-        const res = await screenShareApi.start(id);
+        const requestId = searchParams.get('requestId') || '';
+        if (!requestId) {
+          setStatus('error');
+          setErrorMsg('Remote request ID missing. Start from Remote Access Requests page.');
+          return;
+        }
+
+        const res = await screenShareApi.start(id, requestId);
         if (cancelled) return;
         const { session, commandId, iceServers } = res.data;
         sessionRef.current = { id: session.id };
@@ -222,7 +230,7 @@ export default function RemoteScreenPage() {
         screenShareApi.stop(terminalId, sid).catch(() => {});
       }
     };
-  }, [id, cleanup]);
+  }, [id, cleanup, searchParams]);
 
   const sendControl = (msg: ControlMessage) => {
     const channel = dataChannelRef.current;

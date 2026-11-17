@@ -27,7 +27,7 @@ export default function RemoteAccessRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [requests, setRequests] = useState<RemoteAccessRequestItem[]>([]);
-  const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
+  const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED'>('PENDING');
 
   const load = async () => {
     setLoading(true);
@@ -51,7 +51,7 @@ export default function RemoteAccessRequestsPage() {
       if (request.status === 'PENDING') {
         await remoteAccessRequestsApi.approve(request.id);
       }
-      navigate(`/terminals/${request.terminal.id}/screen`);
+      navigate(`/terminals/${request.terminal.id}/screen?requestId=${request.id}`);
     } catch (e: any) {
       alert(e.response?.data?.error || 'Failed to approve request');
     } finally {
@@ -84,11 +84,12 @@ export default function RemoteAccessRequestsPage() {
             className="form-select"
             style={{ width: '160px' }}
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'PENDING' | 'APPROVED' | 'REJECTED')}
+            onChange={(e) => setStatusFilter(e.target.value as 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED')}
           >
             <option value="PENDING">Pending</option>
             <option value="APPROVED">Approved</option>
             <option value="REJECTED">Rejected</option>
+            <option value="EXPIRED">Expired</option>
           </select>
           <button className="btn btn-secondary" onClick={load} disabled={loading}>
             {loading ? <Loader2 size={14} className="spinner" /> : <RefreshCw size={14} />}

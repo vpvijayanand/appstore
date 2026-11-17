@@ -19,23 +19,60 @@ router.get('/screen-share/ice-servers', requireAdmin, (req: Request, res: Respon
 // MediaProjection consent, then connects to the WS signaling endpoint using
 // this session id to pair up with the admin's own signaling connection.
 router.post('/:id/screen-share/sessions', requireAdmin, async (req: Request, res: Response) => {
+  const remoteAccessRequestId = (req.body?.remoteAccessRequestId as string | undefined)?.trim();
+  if (!remoteAccessRequestId) {
+    return res.status(400).json({ error: 'remoteAccessRequestId is required. Approve a device request before starting remote screen.' });
+  }
+
   const terminal = await prisma.terminal.findUnique({ where: { id: req.params.id } });
   if (!terminal) return res.status(404).json({ error: 'Terminal not found' });
   if (terminal.status !== 'ACTIVE') return res.status(400).json({ error: 'Terminal is not active' });
 
+  const approvedRequest = await prisma.remoteAccessRequest.findUnique({
+    where: { id: remoteAccessRequestId },
+    select: { id: true, terminalId: true, status: true, consumedAt: true },
+  });
+  if (!approvedRequest || approvedRequest.terminalId !== terminal.id) {
+    return res.status(404).json({ error: 'Approved remote access request not found for this terminal' });
+  }
+  if (approvedRequest.status !== 'APPROVED') {
+    return res.status(409).json({ error: `Remote request is ${approvedRequest.status.toLowerCase()}; approve it first` });
+  }
+  if (approvedRequest.consumedAt) {
+    return res.status(409).json({ error: 'Remote request already used to start a session' });
+  }
+
   const session = await prisma.screenShareSession.create({
     data: { terminalId: terminal.id, createdById: req.admin!.adminId },
   });
+
+  const consumed = await prisma.remoteAccessRequest.updateMany({
+    where: {
+      id: remoteAccessRequestId,
+      terminalId: terminal.id,
+      status: 'APPROVED',
+      consumedAt: null,
+    },
+    data: {
+      consumedAt: new Date(),
+      consumedSessionId: session.id,
+    },
+  });
+  if (consumed.count === 0) {
+    await prisma.screenShareSession.update({ where: { id: session.id }, data: { status: 'ENDED', endedAt: new Date() } });
+    return res.status(409).json({ error: 'Remote request was already consumed by another session' });
+  }
+
   const command = await prisma.deviceCommand.create({
     data: {
       terminalId: terminal.id,
       type: 'START_SCREEN_SHARE',
       createdById: req.admin!.adminId,
-      payload: { sessionId: session.id },
+      payload: { sessionId: session.id, remoteAccessRequestId },
     },
   });
   await prisma.adminAuditLog.create({
-    data: { adminId: req.admin!.adminId, action: 'START_SCREEN_SHARE', entityType: 'Terminal', entityId: terminal.id, details: { sessionId: session.id, commandId: command.id } },
+    data: { adminId: req.admin!.adminId, action: 'START_SCREEN_SHARE', entityType: 'Terminal', entityId: terminal.id, details: { sessionId: session.id, commandId: command.id, remoteAccessRequestId } },
   });
 
   return res.json({ session, commandId: command.id, iceServers: getIceServers(`admin:${req.admin!.adminId}`) });

@@ -458,13 +458,13 @@ export default function TerminalsPage() {
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <button
                           className="btn btn-secondary btn-sm"
-                          onClick={() => navigate(`/terminals/${t.id}/screen`)}
+                          onClick={() => navigate('/remote-access-requests')}
                           disabled={t.status !== 'ACTIVE'}
-                          title="View and control this terminal's screen live"
+                          title="Open approved device requests queue for remote support"
                           style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
                           <Monitor size={12} />
-                          Remote Screen
+                          Remote Queue
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"

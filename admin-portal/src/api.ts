@@ -111,8 +111,8 @@ export const terminalsApi = {
 
 // ── Remote Screen Share (view/control a terminal's screen) ───────────────────
 export const screenShareApi = {
-  start: (terminalId: string) =>
-    api.post(`/terminals/${terminalId}/screen-share/sessions`),
+  start: (terminalId: string, remoteAccessRequestId: string) =>
+    api.post(`/terminals/${terminalId}/screen-share/sessions`, { remoteAccessRequestId }),
   getSession: (terminalId: string, sessionId: string) =>
     api.get(`/terminals/${terminalId}/screen-share/sessions/${sessionId}`),
   stop: (terminalId: string, sessionId: string) =>
