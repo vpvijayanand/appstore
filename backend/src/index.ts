@@ -24,6 +24,8 @@ import advertisementsDeviceRouter from './routes/advertisements-device';
 import settingsRouter from './routes/settings';
 import screenShareRouter from './routes/screen-share';
 import screenShareDeviceRouter from './routes/screen-share-device';
+import remoteAccessRequestsRouter from './routes/remote-access-requests';
+import remoteAccessDeviceRouter from './routes/remote-access-device';
 import { initMinIO } from './services/minio';
 import { attachSignalingServer } from './services/signaling';
 
@@ -114,6 +116,8 @@ app.use('/api/terminal/advertisements', advertisementsDeviceRouter);        // T
 app.use('/api/settings', settingsRouter);                                   // Admin-facing (global app settings)
 app.use('/api/terminals', screenShareRouter);            // Admin-facing (remote screen-share sessions)
 app.use('/api/terminal/screen-share', screenShareDeviceRouter); // Terminal-facing (ICE servers)
+app.use('/api/remote-access-requests', remoteAccessRequestsRouter); // Admin-facing (device-initiated support queue)
+app.use('/api/terminal/remote-access', remoteAccessDeviceRouter); // Terminal-facing (raise support request)
 
 // ── 404 & Error Handler ───────────────────────────────────────────────────────
 app.use((_req, res) => {

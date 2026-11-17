@@ -41,6 +41,31 @@
     </LinearLayout>
 
     <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="2dp">
+
+        <Button
+            android:id="@+id/btn_request_remote_access"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:text="Request Remote Support"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:backgroundTint="#1E3A8A"
+            android:textColor="#FFFFFF" />
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/ll_default_apps_banner"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

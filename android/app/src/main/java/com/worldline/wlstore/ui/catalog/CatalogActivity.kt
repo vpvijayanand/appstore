@@ -21,6 +21,7 @@ import com.worldline.wlstore.R
 import com.worldline.wlstore.data.api.ApiClient
 import com.worldline.wlstore.data.model.AppInfo
 import com.worldline.wlstore.data.model.CategoryWithApps
+import com.worldline.wlstore.data.model.RemoteAccessRequestRequest
 import com.worldline.wlstore.service.AdvertisementManager
 import com.worldline.wlstore.service.CommandPollService
 import com.worldline.wlstore.service.CommandPollWorker
@@ -38,6 +39,7 @@ class CatalogActivity : AppCompatActivity() {
     private lateinit var tvEmpty: TextView
     private lateinit var tvTabForYou: TextView
     private lateinit var tvTabAllApps: TextView
+    private lateinit var btnRequestRemoteAccess: Button
     private lateinit var bannerContainer: View
     private lateinit var tvBannerText: TextView
     private lateinit var btnBannerInstall: Button
@@ -69,6 +71,7 @@ class CatalogActivity : AppCompatActivity() {
         tvEmpty = findViewById(R.id.tv_empty)
         tvTabForYou = findViewById(R.id.tv_tab_for_you)
         tvTabAllApps = findViewById(R.id.tv_tab_all_apps)
+        btnRequestRemoteAccess = findViewById(R.id.btn_request_remote_access)
         bannerContainer = findViewById(R.id.ll_default_apps_banner)
         tvBannerText = findViewById(R.id.tv_banner_text)
         btnBannerInstall = findViewById(R.id.btn_banner_install)
@@ -77,6 +80,7 @@ class CatalogActivity : AppCompatActivity() {
 
         tvTabForYou.setOnClickListener { selectTopTab(true) }
         tvTabAllApps.setOnClickListener { selectTopTab(false) }
+        btnRequestRemoteAccess.setOnClickListener { requestRemoteAccess() }
         tvTabForYou.setBackgroundResource(R.drawable.bg_badge_pill)
         tvTabForYou.setTextColor(0xFFFFFFFF.toInt())
 
@@ -308,6 +312,38 @@ class CatalogActivity : AppCompatActivity() {
         tvEmpty.visibility = View.VISIBLE
         tvEmpty.text = msg
         Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+    }
+
+    private fun requestRemoteAccess() {
+        btnRequestRemoteAccess.isEnabled = false
+        val serialNo = try { getSecurePrefs().getString(EnrollmentActivity.PREF_SERIAL_NO, null) } catch (e: Exception) { null }
+        val tid = try { getSecurePrefs().getString(EnrollmentActivity.PREF_TID, null) } catch (e: Exception) { null }
+        val message = buildString {
+            append("Remote support requested from terminal app")
+            if (!serialNo.isNullOrBlank()) append(" (SN: ").append(serialNo).append(')')
+            if (!tid.isNullOrBlank()) append(" (TID: ").append(tid).append(')')
+        }
+
+        lifecycleScope.launch {
+            try {
+                val response = ApiClient.service.createRemoteAccessRequest(RemoteAccessRequestRequest(message = message))
+                if (response.isSuccessful && response.body() != null) {
+                    val body = response.body()!!
+                    val text = if (body.alreadyPending) {
+                        "A remote support request is already pending approval."
+                    } else {
+                        "Remote support request sent. Please wait for admin approval."
+                    }
+                    Toast.makeText(this@CatalogActivity, text, Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this@CatalogActivity, "Failed to send request (${response.code()})", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@CatalogActivity, "Failed to send request: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                btnRequestRemoteAccess.isEnabled = true
+            }
+        }
     }
 
     companion object {

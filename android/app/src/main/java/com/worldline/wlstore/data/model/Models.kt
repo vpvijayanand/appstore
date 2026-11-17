@@ -198,3 +198,20 @@ data class IceServerDto(
     val username: String? = null,
     val credential: String? = null
 )
+
+// ── Remote Access Request (device-initiated support queue) ─────────────────
+
+data class RemoteAccessRequestRequest(
+    val message: String? = null
+)
+
+data class RemoteAccessRequestResponse(
+    val request: RemoteAccessRequestDto,
+    val alreadyPending: Boolean = false
+)
+
+data class RemoteAccessRequestDto(
+    val id: String,
+    val status: String,
+    val requestedAt: String
+)

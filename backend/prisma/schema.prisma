@@ -229,9 +229,39 @@ model Terminal {
   terminalMaster TerminalMaster? @relation(fields: [terminalMasterId], references: [id])
   deviceCommands DeviceCommand[]
   screenShareSessions ScreenShareSession[]
+  remoteAccessRequests RemoteAccessRequest[]
   advertisementDeliveries AdvertisementDelivery[]
 
   @@map("terminals")
+}
+
+// ─── Remote Access Requests (device-initiated support queue) ───────────────
+// Terminals can request remote support from Android. Admins review a queue
+// (with serial/TID) and approve/reject each request before opening a session.
+model RemoteAccessRequest {
+  id             String                    @id @default(uuid())
+  terminalId     String                    @map("terminal_id")
+  terminal       Terminal                  @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  status         RemoteAccessRequestStatus @default(PENDING)
+  requestedAt    DateTime                  @default(now()) @map("requested_at")
+  requestedBy    String?                   @map("requested_by")
+  message        String?
+  approvedById   String?                   @map("approved_by_id")
+  approvedAt     DateTime?                 @map("approved_at")
+  rejectedById   String?                   @map("rejected_by_id")
+  rejectedAt     DateTime?                 @map("rejected_at")
+  rejectionReason String?                  @map("rejection_reason")
+
+  @@index([terminalId, status])
+  @@index([status, requestedAt])
+  @@map("remote_access_requests")
+}
+
+enum RemoteAccessRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
 }
 
 // ─── Device Commands (remote control: admin → Android app) ──────────────────

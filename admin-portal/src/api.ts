@@ -119,6 +119,16 @@ export const screenShareApi = {
     api.post(`/terminals/${terminalId}/screen-share/sessions/${sessionId}/stop`),
 };
 
+// ── Remote Access Requests (device-initiated support queue) ─────────────────
+export const remoteAccessRequestsApi = {
+  list: (status = 'PENDING', take = 100) =>
+    api.get('/remote-access-requests', { params: { status, take } }),
+  approve: (requestId: string) =>
+    api.post(`/remote-access-requests/${requestId}/approve`),
+  reject: (requestId: string, reason?: string) =>
+    api.post(`/remote-access-requests/${requestId}/reject`, { reason }),
+};
+
 // ── Terminal Masters (Serial No / TID device provisioning) ────────────────────
 export const terminalMastersApi = {
   list: (params?: Record<string, string>) =>

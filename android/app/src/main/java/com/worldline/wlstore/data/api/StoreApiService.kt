@@ -60,6 +60,9 @@ interface StoreApiService {
     // Remote screen share — STUN/TURN server list for this terminal's RTCPeerConnection
     @GET("terminal/screen-share/ice-servers")
     suspend fun getScreenShareIceServers(): Response<IceServersResponse>
+
+    @POST("terminal/remote-access/request")
+    suspend fun createRemoteAccessRequest(@Body body: RemoteAccessRequestRequest): Response<RemoteAccessRequestResponse>
 }
 
 // ── Singleton Client ──────────────────────────────────────────────────────────
