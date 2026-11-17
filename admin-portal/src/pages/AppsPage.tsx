@@ -60,9 +60,11 @@ export default function AppsPage() {
   const handleFileChange = (file: File) => {
     setSelectedFile(file);
     if (!form.name) {
-      setForm(f => ({ ...f, name: file.name.replace('.apk', '').replace(/-/g, ' ') }));
+      setForm(f => ({ ...f, name: file.name.replace(/\.(apk|mci)$/i, '').replace(/-/g, ' ') }));
     }
   };
+
+  const isSupportedPackage = (file: File) => /\.(apk|mci)$/i.test(file.name);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,7 +151,7 @@ export default function AppsPage() {
             Export Excel
           </button>
           <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-            <Plus size={16} /> Upload APK
+            <Plus size={16} /> Upload App Package
           </button>
         </div>
       </div>
@@ -256,7 +258,7 @@ export default function AppsPage() {
                 <tr>
                   <td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                     <Package size={40} style={{ marginBottom: '12px', opacity: 0.3 }} />
-                    <div>No apps found. Upload your first APK.</div>
+                    <div>No apps found. Upload your first package.</div>
                   </td>
                 </tr>
               )}
@@ -270,7 +272,7 @@ export default function AppsPage() {
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal" style={{ width: '640px' }}>
             <div className="modal-header">
-              <h3 className="modal-title">Upload New APK</h3>
+              <h3 className="modal-title">Upload New App Package</h3>
               <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setShowModal(false)}>✕</button>
             </div>
 
@@ -285,7 +287,7 @@ export default function AppsPage() {
                   e.preventDefault();
                   setDragging(false);
                   const file = e.dataTransfer.files[0];
-                  if (file?.name.endsWith('.apk')) handleFileChange(file);
+                  if (file && isSupportedPackage(file)) handleFileChange(file);
                 }}
               >
                 <div className="upload-zone-icon">📦</div>
@@ -300,13 +302,21 @@ export default function AppsPage() {
                   </div>
                 ) : (
                   <div>
-                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>Drop APK here or click to browse</div>
+                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>Drop APK/MCI here or click to browse</div>
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Max file size: 200MB</div>
                   </div>
                 )}
               </div>
-              <input ref={fileInputRef} type="file" accept=".apk" style={{ display: 'none' }}
-                onChange={e => e.target.files?.[0] && handleFileChange(e.target.files[0])} />
+              <input ref={fileInputRef} type="file" accept=".apk,.mci" style={{ display: 'none' }}
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (!isSupportedPackage(file)) {
+                    alert('Only .apk and .mci files are supported.');
+                    return;
+                  }
+                  handleFileChange(file);
+                }} />
 
               <div className="content-grid grid-2" style={{ gap: '12px' }}>
                 <div className="form-group">
@@ -362,7 +372,7 @@ export default function AppsPage() {
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={uploading || !selectedFile}>
                   {uploading ? <Loader2 size={15} className="spinner" /> : <Upload size={15} />}
-                  {uploading ? 'Uploading...' : 'Upload APK'}
+                  {uploading ? 'Uploading...' : 'Upload Package'}
                 </button>
               </div>
             </form>

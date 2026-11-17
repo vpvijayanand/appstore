@@ -3,11 +3,14 @@ package com.worldline.wlstore.service
 import android.content.Context
 import android.content.pm.PackageInstaller
 import android.content.Intent
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Handles APK download, SHA-256 checksum verification, and silent install.
@@ -17,10 +20,10 @@ import java.security.MessageDigest
  */
 object InstallManager {
 
-    /**
-     * Downloads an APK from a signed URL into the app's cache directory.
-     * Reports progress to the callback.
-     */
+    private const val INSTALL_RESULT_TIMEOUT_MS = 5 * 60_000L
+    private val installWaiters = ConcurrentHashMap<Int, CompletableDeferred<Pair<Boolean, String>>>()
+
+    /** Downloads a package file from a signed URL into the app cache directory. */
     suspend fun downloadApk(
         context: Context,
         downloadUrl: String,
@@ -28,9 +31,9 @@ object InstallManager {
         onProgress: (Int) -> Unit
     ): Result<File> = withContext(Dispatchers.IO) {
         try {
-            val cacheDir = File(context.cacheDir, "apks")
+            val cacheDir = File(context.cacheDir, "packages")
             cacheDir.mkdirs()
-            val apkFile = File(cacheDir, fileName)
+            val packageFile = File(cacheDir, fileName)
 
             val targetUrl = downloadUrl
                 .replace("http://localhost:", "http://10.0.2.2:")
@@ -42,7 +45,7 @@ object InstallManager {
             connection.connect()
             val contentLength = connection.contentLengthLong
 
-            apkFile.outputStream().use { output ->
+            packageFile.outputStream().use { output ->
                 connection.inputStream.use { input ->
                     val buffer = ByteArray(8192)
                     var downloaded = 0L
@@ -57,16 +60,13 @@ object InstallManager {
                 }
             }
             connection.disconnect()
-            Result.success(apkFile)
+            Result.success(packageFile)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    /**
-     * Verifies the SHA-256 checksum of a downloaded APK.
-     * Returns true if checksum matches.
-     */
+    /** Verifies the SHA-256 checksum of a downloaded package file. */
     suspend fun verifyChecksum(file: File, expectedChecksum: String): Boolean =
         withContext(Dispatchers.IO) {
             try {
@@ -86,17 +86,14 @@ object InstallManager {
         }
 
     /**
-     * Silently installs an APK using PackageInstaller API.
-     * This requires the app to be running as Device Owner (Android Enterprise).
-     *
-     * On non-Device-Owner devices, falls back to standard install intent.
+     * Installs a package using PackageInstaller API and waits for the final
+     * PackageInstaller callback before returning success/failure.
      */
     suspend fun installApk(
         context: Context,
         apkFile: File,
-        packageName: String,
-        onResult: (success: Boolean, message: String) -> Unit
-    ) = withContext(Dispatchers.IO) {
+        packageName: String
+    ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
             val packageInstaller = context.packageManager.packageInstaller
             val params = PackageInstaller.SessionParams(
@@ -121,6 +118,9 @@ object InstallManager {
                 putExtra("packageName", packageName)
             }
 
+            val deferred = CompletableDeferred<Pair<Boolean, String>>()
+            installWaiters[sessionId] = deferred
+
             val pendingIntent = android.app.PendingIntent.getBroadcast(
                 context, sessionId, intent,
                 android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
@@ -129,20 +129,22 @@ object InstallManager {
             session.commit(pendingIntent.intentSender)
             session.close()
 
-            withContext(Dispatchers.Main) {
-                onResult(true, "Install initiated for $packageName")
-            }
+            val outcome = withTimeoutOrNull(INSTALL_RESULT_TIMEOUT_MS) { deferred.await() }
+                ?: (false to "Install confirmation timed out")
+            installWaiters.remove(sessionId)
+            outcome
         } catch (e: IOException) {
-            // Fall back to standard install intent (non-Device-Owner)
-            withContext(Dispatchers.Main) {
-                installApkFallback(context, apkFile)
-                onResult(true, "Standard install dialog opened")
-            }
+            // Non-Device-Owner flow cannot guarantee silent-result confirmation.
+            installApkFallback(context, apkFile)
+            false to "Interactive install required; silent confirmation unavailable"
         } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                onResult(false, e.message ?: "Install failed")
-            }
+            false to (e.message ?: "Install failed")
         }
+    }
+
+    fun reportInstallResult(sessionId: Int, success: Boolean, message: String) {
+        val deferred = installWaiters.remove(sessionId) ?: return
+        if (!deferred.isCompleted) deferred.complete(success to message)
     }
 
     private fun installApkFallback(context: Context, apkFile: File) {

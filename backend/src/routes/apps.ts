@@ -5,10 +5,13 @@ import crypto from 'crypto';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth';
 import { uploadApk, getPresignedUrl, deleteObject } from '../services/minio';
+import { expireStaleDownloadEvents } from '../services/download-status';
 
 const router = Router();
 const prisma = new PrismaClient();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 200 * 1024 * 1024 } }); // 200MB
+
+const ALLOWED_PACKAGE_EXTENSIONS = new Set(['apk', 'mci']);
 
 // ── List All Apps (Admin) ─────────────────────────────────────────────────────
 router.get('/', requireAdmin, async (req: Request, res: Response) => {
@@ -50,10 +53,16 @@ router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
   return res.json({ ...app, sizeBytes: app.sizeBytes.toString() });
 });
 
-// ── Upload New App (with APK) ─────────────────────────────────────────────────
+// ── Upload New App (with APK/MCI package) ─────────────────────────────────────
 router.post('/upload', requireAdmin, upload.single('apk'), async (req: Request, res: Response) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'APK file required' });
+    if (!req.file) return res.status(400).json({ error: 'App package file required (.apk or .mci)' });
+
+    const originalName = (req.file.originalname || '').toLowerCase();
+    const ext = originalName.includes('.') ? originalName.split('.').pop() || '' : '';
+    if (!ALLOWED_PACKAGE_EXTENSIONS.has(ext)) {
+      return res.status(400).json({ error: 'Unsupported file type. Only .apk and .mci are allowed.' });
+    }
 
     const schema = z.object({
       categoryId: z.string().uuid(),
@@ -71,7 +80,7 @@ router.post('/upload', requireAdmin, upload.single('apk'), async (req: Request, 
 
     // Compute checksum
     const checksum = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-    const objectName = `${data.packageName}-${data.version}.apk`;
+    const objectName = `${data.packageName}-${data.version}.${ext}`;
 
     // Upload to MinIO
     const apkUrl = await uploadApk(objectName, req.file.buffer, req.file.mimetype || 'application/vnd.android.package-archive');
@@ -175,6 +184,8 @@ router.get('/:id/download-url', requireAdmin, async (req: Request, res: Response
 // ── Get App Download History ──────────────────────────────────────────────────
 router.get('/:id/downloads', requireAdmin, async (req: Request, res: Response) => {
   try {
+    await expireStaleDownloadEvents(prisma);
+
     const downloads = await prisma.downloadEvent.findMany({
       where: { appId: req.params.id },
       include: {

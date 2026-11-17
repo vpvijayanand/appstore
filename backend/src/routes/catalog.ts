@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient, AssignmentMode } from '@prisma/client';
 import { requireTerminal } from '../middleware/auth';
+import { expireStaleDownloadEvents } from '../services/download-status';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -138,6 +139,8 @@ router.get('/default-apps', requireTerminal, async (req: Request, res: Response)
 // Generates a short-lived signed URL for APK download
 router.get('/download/:appId', requireTerminal, async (req: Request, res: Response) => {
   try {
+    await expireStaleDownloadEvents(prisma);
+
     const { appId } = req.params;
     const { customerId, terminalMasterId, dbId: terminalDbId } = req.terminal!;
 
@@ -187,6 +190,8 @@ router.get('/download/:appId', requireTerminal, async (req: Request, res: Respon
         version: app.version,
         checksum: app.checksum,
         sizeBytes: app.sizeBytes.toString(),
+        fileName: app.apkObjectName,
+        fileType: app.apkObjectName.toLowerCase().endsWith('.mci') ? 'MCI' : 'APK',
       },
     });
   } catch (e) {

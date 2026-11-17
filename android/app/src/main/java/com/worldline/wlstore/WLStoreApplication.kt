@@ -3,6 +3,8 @@ package com.worldline.wlstore
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.lifecycleScope
 import androidx.appcompat.app.AppCompatActivity
 import com.worldline.wlstore.service.AdvertisementManager
@@ -25,6 +27,26 @@ import kotlinx.coroutines.launch
  */
 class WLStoreApplication : Application() {
 
+    private val idleHandler = Handler(Looper.getMainLooper())
+    private var idleRunnable: Runnable? = null
+
+    private fun scheduleScreensaverCheck(activity: Activity) {
+        idleRunnable?.let { idleHandler.removeCallbacks(it) }
+        idleRunnable = Runnable {
+            if (activity is AppCompatActivity && !activity.isFinishing && !activity.isDestroyed) {
+                activity.lifecycleScope.launch {
+                    AdvertisementManager.checkAndMaybeShowScreensaver(activity)
+                }
+            }
+        }
+        idleHandler.postDelayed(idleRunnable!!, AdvertisementManager.IDLE_THRESHOLD_MS)
+    }
+
+    private fun cancelScreensaverCheck() {
+        idleRunnable?.let { idleHandler.removeCallbacks(it) }
+        idleRunnable = null
+    }
+
     override fun onCreate() {
         super.onCreate()
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
@@ -42,11 +64,14 @@ class WLStoreApplication : Application() {
                         AdvertisementManager.checkAndMaybeShowPopups(activity)
                     }
                 }
+                scheduleScreensaverCheck(activity)
             }
 
             override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
             override fun onActivityStarted(activity: Activity) {}
-            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {
+                cancelScreensaverCheck()
+            }
             override fun onActivityStopped(activity: Activity) {}
             override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
             override fun onActivityDestroyed(activity: Activity) {}

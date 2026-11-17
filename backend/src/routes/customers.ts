@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth';
+import { expireStaleDownloadEvents } from '../services/download-status';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -64,6 +65,8 @@ router.put('/:id/entitlements', requireAdmin, async (req: Request, res: Response
 
 router.get('/:id/downloads', requireAdmin, async (req: Request, res: Response) => {
   try {
+    await expireStaleDownloadEvents(prisma);
+
     const downloads = await prisma.downloadEvent.findMany({
       where: { terminal: { customerId: req.params.id } },
       include: {

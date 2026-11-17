@@ -62,7 +62,9 @@ data class AppDownloadInfo(
     val name: String,
     val version: String,
     val checksum: String,
-    val sizeBytes: String
+    val sizeBytes: String,
+    val fileName: String,
+    val fileType: String
 )
 
 // ── Event Models ─────────────────────────────────────────────────────────────

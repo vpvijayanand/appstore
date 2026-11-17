@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient, TerminalMasterStatus } from '@prisma/client';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth';
+import { expireStaleDownloadEvents } from '../services/download-status';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -214,6 +215,8 @@ router.delete('/:id', requireAdmin, async (req: Request, res: Response) => {
 // — so the admin portal's "Downloads" view can show real-time progress
 // instead of only a historical event log.
 router.get('/:id/downloads', requireAdmin, async (req: Request, res: Response) => {
+  await expireStaleDownloadEvents(prisma);
+
   const master = await prisma.terminalMaster.findUnique({
     where: { id: req.params.id },
     include: { terminal: true },

@@ -198,13 +198,13 @@ class AppDetailActivity : AppCompatActivity() {
                     installStatus = "DOWNLOADING"
                 )
 
-                // Step 3: Download APK
+                // Step 3: Download package
                 updateStatus("Downloading ${a.name}...")
                 progressBar.isIndeterminate = false
                 val apkResult = InstallManager.downloadApk(
                     context = this@AppDetailActivity,
                     downloadUrl = dlData.downloadUrl,
-                    fileName = "${a.packageName}-${a.version}.apk",
+                    fileName = dlData.app.fileName,
                     onProgress = { pct ->
                         runOnUiThread {
                             progressBar.progress = pct
@@ -225,28 +225,25 @@ class AppDetailActivity : AppCompatActivity() {
                 if (!checksumOk) {
                     apkFile.delete()
                     reportResult(dlData.eventId, a, "FAILED")
-                    showError("Checksum verification failed — APK may be tampered")
+                    showError("Checksum verification failed — package may be tampered")
                     return@launch
                 }
 
                 // Step 5: Install
                 updateStatus("Installing...")
-                InstallManager.installApk(
+                val (success, message) = InstallManager.installApk(
                     context = this@AppDetailActivity,
                     apkFile = apkFile,
                     packageName = a.packageName
-                ) { success, message ->
-                    lifecycleScope.launch {
-                        reportResult(dlData.eventId, a, if (success) "SUCCESS" else "FAILED")
-                        if (success) {
-                            tvStatus.text = "✅ ${a.name} installed successfully"
-                            isInstalling = false
-                            btnInstall.isEnabled = true
-                            refreshButtonState()
-                        } else {
-                            showError(message)
-                        }
-                    }
+                )
+                reportResult(dlData.eventId, a, if (success) "SUCCESS" else "FAILED")
+                if (success) {
+                    tvStatus.text = "✅ ${a.name} installed successfully"
+                    isInstalling = false
+                    btnInstall.isEnabled = true
+                    refreshButtonState()
+                } else {
+                    showError(message)
                 }
 
             } catch (e: Exception) {

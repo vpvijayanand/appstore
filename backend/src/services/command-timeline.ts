@@ -49,7 +49,6 @@ const STAGES: Record<DeviceCommandType, StageDef[]> = {
   ],
   RESTART_DEVICE: [
     { key: 'REBOOTING', label: 'Rebooting the terminal', description: 'The operating system is restarting.' },
-    { key: 'BACK_ONLINE', label: 'Terminal is back online', description: 'The terminal booted and WL BizStore checked in.' },
   ],
   START_SCREEN_SHARE: [
     { key: 'CONSENT_PENDING', label: 'Waiting for on-device approval', description: 'Android requires someone at the terminal to tap "Start now" on the screen-capture prompt.' },

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth';
 import { buildCommandView } from '../services/command-timeline';
 import { getTerminalAdvertisementStates } from '../services/ad-delivery';
+import { expireStaleDownloadEvents } from '../services/download-status';
 import crypto from 'crypto';
 
 const router = Router();
@@ -182,6 +183,8 @@ router.get('/:id/commands/:commandId', requireAdmin, async (req: Request, res: R
 // so an admin can see what the terminal has done and what it is still waiting on.
 router.get('/:id/activity', requireAdmin, async (req: Request, res: Response) => {
   try {
+    await expireStaleDownloadEvents(prisma);
+
     const terminal = await prisma.terminal.findUnique({
       where: { id: req.params.id },
       include: { customer: { select: { name: true } } },

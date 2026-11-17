@@ -95,6 +95,7 @@ class DefaultAppsSetupActivity : AppCompatActivity() {
     /** Downloads, verifies, and installs a single default app, updating its row status. */
     private suspend fun installOne(a: AppInfo) {
         setRowStatus(a.id, "Requesting download…")
+        var eventId: String? = null
         try {
             val urlResponse = ApiClient.service.getDownloadUrl(a.id)
             if (!urlResponse.isSuccessful) {
@@ -102,13 +103,14 @@ class DefaultAppsSetupActivity : AppCompatActivity() {
                 return
             }
             val dlData = urlResponse.body()!!
+            eventId = dlData.eventId
             TelemetryService.reportDownloadEvent(this, dlData.eventId, a.id, a.version, "DOWNLOADING")
 
             setRowStatus(a.id, "Downloading 0%")
             val apkResult = InstallManager.downloadApk(
                 context = this,
                 downloadUrl = dlData.downloadUrl,
-                fileName = "${a.packageName}-${a.version}.apk",
+                fileName = dlData.app.fileName,
                 onProgress = { pct -> runOnUiThread { setRowStatus(a.id, "Downloading $pct%") } }
             )
             val apkFile = apkResult.getOrNull()
@@ -127,13 +129,14 @@ class DefaultAppsSetupActivity : AppCompatActivity() {
             }
 
             setRowStatus(a.id, "Installing…")
-            var success = false
-            var message = ""
-            InstallManager.installApk(this, apkFile, a.packageName) { ok, msg -> success = ok; message = msg }
+            val (success, message) = InstallManager.installApk(this, apkFile, a.packageName)
             TelemetryService.reportDownloadEvent(this, dlData.eventId, a.id, a.version, if (success) "SUCCESS" else "FAILED")
             setRowStatus(a.id, if (success) "✅ Installed" else "❌ $message")
         } catch (e: Exception) {
             setRowStatus(a.id, "❌ Error: ${e.message}")
+            if (eventId != null) {
+                TelemetryService.reportDownloadEvent(this, eventId, a.id, a.version, "FAILED")
+            }
         }
     }
 

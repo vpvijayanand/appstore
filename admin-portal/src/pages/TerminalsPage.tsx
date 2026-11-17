@@ -218,7 +218,6 @@ export default function TerminalsPage() {
           { id: 'QUEUED', label: 'Hardware reboot queued', status: 'completed', timestamp: new Date().toISOString() },
           { id: 'DELIVERED', label: 'Delivered to terminal', status: 'current', detail: 'Waiting for terminal check-in' },
           { id: 'REBOOTING', label: 'Invoking Castles CtSystem.shutdown(REBOOT)', status: 'pending' },
-          { id: 'BACK_ONLINE', label: 'POS OS rebooted & store app reconnected', status: 'pending' },
         ],
         estimatedSecondsRemaining: 65,
         isOverdue: false,
@@ -756,7 +755,11 @@ export default function TerminalsPage() {
                 }}
               >
                 <CheckCircle2 size={18} />
-                <span>Operation completed successfully! Terminal checked back in and confirmed status.</span>
+                <span>
+                  {trackedCommand.type === 'RESTART_DEVICE'
+                    ? 'Operation completed successfully! Reboot command finished on the device.'
+                    : 'Operation completed successfully! Terminal checked back in and confirmed status.'}
+                </span>
               </div>
             )}
 

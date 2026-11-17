@@ -1,12 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { requireAdmin } from '../middleware/auth';
+import { expireStaleDownloadEvents } from '../services/download-status';
 
 const router = Router();
 const prisma = new PrismaClient();
 
 // ── Dashboard Stats ───────────────────────────────────────────────────────────
 router.get('/stats', requireAdmin, async (_req: Request, res: Response) => {
+  await expireStaleDownloadEvents(prisma);
+
   const [totalApps, totalTerminals, totalCustomers, totalDownloads] = await Promise.all([
     prisma.app.count({ where: { isPublished: true } }),
     prisma.terminal.count({ where: { status: 'ACTIVE' } }),
@@ -37,6 +40,8 @@ router.get('/stats', requireAdmin, async (_req: Request, res: Response) => {
 
 // ── Download Events (paginated) ───────────────────────────────────────────────
 router.get('/events', requireAdmin, async (req: Request, res: Response) => {
+  await expireStaleDownloadEvents(prisma);
+
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 50;
   const customerId = req.query.customerId as string;

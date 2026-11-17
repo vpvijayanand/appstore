@@ -10,10 +10,15 @@ class InstallResultReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -1)
         val packageName = intent.getStringExtra("packageName") ?: "unknown"
+        val sessionId = intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1)
 
         when (status) {
-            PackageInstaller.STATUS_SUCCESS ->
+            PackageInstaller.STATUS_SUCCESS -> {
                 Log.i("WLStore", "✅ Silent install successful: $packageName")
+                if (sessionId >= 0) {
+                    InstallManager.reportInstallResult(sessionId, true, "Installed successfully")
+                }
+            }
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 // Device is not Device Owner — show install dialog
                 val confirmIntent = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
@@ -23,6 +28,9 @@ class InstallResultReceiver : BroadcastReceiver() {
             else -> {
                 val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                 Log.e("WLStore", "❌ Install failed for $packageName: $message")
+                if (sessionId >= 0) {
+                    InstallManager.reportInstallResult(sessionId, false, message ?: "Install failed")
+                }
             }
         }
     }
