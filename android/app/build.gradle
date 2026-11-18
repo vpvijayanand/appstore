@@ -20,6 +20,15 @@ android {
         buildConfigField "String", "APP_VERSION", "\"1.1.0\""
     }
 
+    // v1 (JAR) signing is required by some POS vendor ROMs' package parsers
+    // (AGP omits v1 when minSdk >= 24, which can cause "package specified is inconsistent").
+    signingConfigs {
+        debug {
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
     buildTypes {
         debug {
             buildConfigField "String", "API_BASE_URL", "\"https://appstore.vijayanandpremnath.cloud/api\""

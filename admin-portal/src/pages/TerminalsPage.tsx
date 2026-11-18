@@ -616,6 +616,8 @@ export default function TerminalsPage() {
             >
               {trackedCommand.steps.map((step, idx) => {
                 const isLast = idx === trackedCommand.steps.length - 1;
+                const allDone = trackedCommand.status === 'COMPLETED';
+                const stepDone = allDone || step.status === 'completed';
                 return (
                   <div key={step.id} style={{ display: 'flex', gap: '12px', position: 'relative' }}>
                     {/* Left Icon */}
@@ -629,23 +631,23 @@ export default function TerminalsPage() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           background:
-                            step.status === 'completed'
-                              ? '#dcfce7'
+                            stepDone
+                              ? '#16a34a'
                               : step.status === 'current'
                               ? '#e0f2fe'
                               : step.status === 'failed'
                               ? '#fee2e2'
                               : '#f1f5f9',
                           color:
-                            step.status === 'completed'
-                              ? '#16a34a'
+                            stepDone
+                              ? '#ffffff'
                               : step.status === 'current'
                               ? '#0284c7'
                               : step.status === 'failed'
                               ? '#dc2626'
                               : '#94a3b8',
                           border: `1.5px solid ${
-                            step.status === 'completed'
+                            stepDone
                               ? '#16a34a'
                               : step.status === 'current'
                               ? '#0284c7'
@@ -657,8 +659,8 @@ export default function TerminalsPage() {
                           zIndex: 2,
                         }}
                       >
-                        {step.status === 'completed' ? (
-                          <CheckCircle2 size={15} />
+                        {stepDone ? (
+                          <span style={{ fontSize: '12px', fontWeight: 700 }}>{idx + 1}</span>
                         ) : step.status === 'current' ? (
                           <Loader2 size={14} className="spinner" />
                         ) : step.status === 'failed' ? (
@@ -672,7 +674,7 @@ export default function TerminalsPage() {
                           style={{
                             width: '2px',
                             flex: 1,
-                            background: step.status === 'completed' ? '#16a34a' : '#e2e8f0',
+                            background: stepDone ? '#16a34a' : '#e2e8f0',
                             marginTop: '4px',
                             marginBottom: '4px',
                           }}
