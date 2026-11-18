@@ -273,6 +273,8 @@ Every sensitive admin action is recorded in the `AdminAuditLog` table:
 | `DELETE_APP` | App removed from catalog |
 | `CREATE_CUSTOMER` | New customer organisation added |
 | `UPDATE_ENTITLEMENTS` | App access granted/revoked for a customer |
+| `APPROVE_REMOTE_ACCESS_REQUEST` | Admin approves a device-initiated remote support request |
+| `REJECT_REMOTE_ACCESS_REQUEST` | Admin rejects a remote support request (with reason) |
 
 Each log record stores:
 - **Who** — `adminId` (FK to admin user)
@@ -281,6 +283,18 @@ Each log record stores:
 - **When** — `timestamp` (automatic, cannot be overridden)
 
 This creates an immutable audit trail for compliance (PCI-DSS, SOC 2) — any admin action on apps or customer entitlements is traceable.
+
+### 4.1 Remote Access Approval Gate
+
+Remote screen sharing is gated by a device-initiated request:
+
+- The terminal user must raise the request ("Request Remote Support"); an admin cannot start a session on their own.
+- An admin must explicitly approve it. Approve/reject actions are audit-logged.
+- A session can only be created from an `APPROVED`, unexpired request belonging to that terminal.
+- Each approval is consumed once (`consumedAt`, `consumedSessionId`); a new session needs a new request.
+- Requests not handled within 15 minutes expire automatically.
+- Only one `PENDING` request per terminal (database-level partial unique index).
+- The Android MediaProjection prompt still requires a physical tap on the device for every session.
 
 ---
 
