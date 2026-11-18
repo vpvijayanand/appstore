@@ -2,11 +2,18 @@
 <resources>
     <color name="wl_green">#01875F</color>
     <color name="wl_green_dark">#016B4D</color>
+    <color name="wl_green_light">#01875F</color>
     <color name="wl_amber">#F9AB00</color>
-    <color name="wl_background">#0F1117</color>
-    <color name="wl_surface">#1A1D27</color>
-    <color name="wl_text_primary">#E8EAED</color>
-    <color name="wl_text_secondary">#9AA0AD</color>
+    <color name="wl_blue">#2F6FED</color>
+    <color name="wl_background">#F5F7FA</color>
+    <color name="wl_surface">#FFFFFF</color>
+    <color name="wl_surface_elevated">#FFFFFF</color>
+    <color name="wl_icon_frame">#EEF2F1</color>
+    <color name="wl_pill_selected">#01875F</color>
+    <color name="wl_divider">#E4E7EC</color>
+    <color name="wl_text_primary">#1A1D27</color>
+    <color name="wl_text_secondary">#5F6B7A</color>
+    <color name="wl_text_muted">#8A94A3</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

@@ -3,14 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0F1117">
+    android:background="@color/wl_background">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="#1A1D26"
-        android:padding="8dp">
+        android:background="@drawable/bg_card_outlined"
+        android:layout_margin="10dp"
+        android:padding="6dp">
 
         <TextView
             android:id="@+id/tv_tab_for_you"
@@ -21,9 +22,9 @@
             android:gravity="center"
             android:padding="10dp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/white"
             android:textSize="13sp"
-            android:background="@drawable/bg_badge_pill"
+            android:background="@drawable/bg_tab_pill_selected"
             android:layout_marginEnd="6dp" />
 
         <TextView
@@ -35,7 +36,7 @@
             android:gravity="center"
             android:padding="10dp"
             android:textStyle="bold"
-            android:textColor="#9AA0AD"
+            android:textColor="@color/wl_text_secondary"
             android:textSize="13sp" />
 
     </LinearLayout>
@@ -47,22 +48,22 @@
         android:gravity="end"
         android:paddingStart="10dp"
         android:paddingEnd="10dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="2dp">
+        android:paddingTop="2dp"
+        android:paddingBottom="6dp">
 
         <Button
             android:id="@+id/btn_request_remote_access"
             android:layout_width="wrap_content"
-            android:layout_height="34dp"
+            android:layout_height="36dp"
             android:minWidth="0dp"
             android:minHeight="0dp"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
             android:text="Request Remote Support"
             android:textAllCaps="false"
             android:textSize="12sp"
-            android:backgroundTint="#1E3A8A"
-            android:textColor="#FFFFFF" />
+            android:background="@drawable/bg_button_outline"
+            android:textColor="@color/wl_green_light" />
     </LinearLayout>
 
     <LinearLayout
@@ -73,7 +74,7 @@
         android:gravity="center_vertical"
         android:background="@drawable/bg_badge_pill"
         android:backgroundTint="#17231C"
-        android:padding="12dp"
+        android:padding="14dp"
         android:layout_margin="10dp"
         android:visibility="gone">
 
@@ -82,7 +83,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="#34C785"
+            android:textColor="@color/wl_green_light"
             android:textSize="12sp"
             android:textStyle="bold" />
 
@@ -97,8 +98,8 @@
             android:text="Install"
             android:textSize="12sp"
             android:textAllCaps="false"
-            android:backgroundTint="#01875F"
-            android:textColor="#FFFFFF" />
+            android:background="@drawable/bg_button_primary"
+            android:textColor="@color/white" />
 
     </LinearLayout>
 
@@ -106,10 +107,11 @@
         android:id="@+id/tab_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#1A1D26"
-        app:tabTextColor="#9AA0AD"
-        app:tabSelectedTextColor="#34C785"
-        app:tabIndicatorColor="#01875F"
+        android:background="@color/wl_background"
+        app:tabTextColor="@color/wl_text_secondary"
+        app:tabSelectedTextColor="@color/wl_green_light"
+        app:tabIndicatorColor="@color/wl_green"
+        app:tabIndicatorHeight="3dp"
         app:tabMode="scrollable"
         xmlns:app="http://schemas.android.com/apk/res-auto" />
 
@@ -119,7 +121,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="80dp"
-        android:indeterminateTint="#01875F"
+        android:indeterminateTint="@color/wl_green"
         android:visibility="gone" />
 
     <TextView
@@ -128,7 +130,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_marginTop="80dp"
-        android:textColor="#9AA0AD"
+        android:textColor="@color/wl_text_secondary"
         android:textSize="14sp"
         android:visibility="gone" />
 

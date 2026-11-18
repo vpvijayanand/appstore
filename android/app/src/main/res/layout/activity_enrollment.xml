@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="#0F1117"
+    android:background="@color/wl_background"
     android:clipToPadding="false">
 
     <LinearLayout
@@ -27,7 +27,7 @@
             android:text="WL BizStore"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="#E8EAED"
+            android:textColor="@color/wl_text_primary"
             android:layout_marginBottom="4dp" />
 
         <TextView
@@ -35,7 +35,7 @@
             android:layout_height="wrap_content"
             android:text="Empowering Your Point of Sale"
             android:textSize="13sp"
-            android:textColor="#9AA0AD"
+            android:textColor="@color/wl_text_secondary"
             android:layout_marginBottom="40dp" />
 
         <!-- Serial number read automatically from the terminal (CTOS SDK) —
@@ -45,7 +45,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text=""
-            android:textColor="#E8EAED"
+            android:textColor="@color/wl_text_primary"
             android:textSize="14sp"
             android:fontFamily="monospace"
             android:layout_marginBottom="24dp" />
@@ -55,7 +55,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:visibility="visible"
-            android:indeterminateTint="#01875F"
+            android:indeterminateTint="@color/wl_green"
             android:layout_marginBottom="16dp" />
 
         <TextView
@@ -63,7 +63,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Reading terminal serial number..."
-            android:textColor="#9AA0AD"
+            android:textColor="@color/wl_text_secondary"
             android:textSize="13sp"
             android:gravity="center"
             android:layout_marginBottom="24dp" />
@@ -74,9 +74,10 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:text="Retry"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/white"
             android:textSize="15sp"
-            android:backgroundTint="#01875F"
+            android:textAllCaps="false"
+            android:background="@drawable/bg_button_primary"
             android:visibility="gone" />
 
     </LinearLayout>

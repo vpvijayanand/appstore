@@ -8,12 +8,12 @@
         <item name="colorSecondary">@color/wl_green</item>
         <item name="colorOnSecondary">@color/white</item>
         <item name="android:colorBackground">@color/wl_background</item>
-        <item name="android:statusBarColor">@color/wl_background</item>
-        <item name="android:navigationBarColor">@color/wl_background</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:statusBarColor">@color/wl_surface</item>
+        <item name="android:navigationBarColor">@color/wl_surface</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
     </style>
 
-    <!-- Enrollment screen: full dark, no action bar -->
+    <!-- Enrollment screen: full light, no action bar -->
     <style name="Theme.WLStore.Enrollment" parent="Theme.WLStore">
         <item name="android:windowBackground">@color/wl_background</item>
     </style>
@@ -26,9 +26,9 @@
         <item name="colorSecondary">@color/wl_green</item>
         <item name="colorOnSecondary">@color/white</item>
         <item name="android:colorBackground">@color/wl_background</item>
-        <item name="android:statusBarColor">@color/wl_background</item>
-        <item name="android:navigationBarColor">@color/wl_background</item>
-        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <item name="android:statusBarColor">@color/wl_surface</item>
+        <item name="android:navigationBarColor">@color/wl_surface</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
         <item name="android:windowBackground">@color/wl_background</item>
     </style>
     <!-- Advertisement popup/screensaver: full-screen, no action bar, no status/nav chrome -->

@@ -81,7 +81,7 @@ class CatalogActivity : AppCompatActivity() {
         tvTabForYou.setOnClickListener { selectTopTab(true) }
         tvTabAllApps.setOnClickListener { selectTopTab(false) }
         btnRequestRemoteAccess.setOnClickListener { requestRemoteAccess() }
-        tvTabForYou.setBackgroundResource(R.drawable.bg_badge_pill)
+        tvTabForYou.setBackgroundResource(R.drawable.bg_tab_pill_selected)
         tvTabForYou.setTextColor(0xFFFFFFFF.toInt())
 
         loadCatalog()
@@ -199,10 +199,10 @@ class CatalogActivity : AppCompatActivity() {
     private fun selectTopTab(forYou: Boolean) {
         if (showForYouOnly == forYou) return
         showForYouOnly = forYou
-        tvTabForYou.setBackgroundResource(if (forYou) R.drawable.bg_badge_pill else 0)
-        tvTabForYou.setTextColor(if (forYou) 0xFFFFFFFF.toInt() else 0xFF9AA0AD.toInt())
-        tvTabAllApps.setBackgroundResource(if (!forYou) R.drawable.bg_badge_pill else 0)
-        tvTabAllApps.setTextColor(if (!forYou) 0xFFFFFFFF.toInt() else 0xFF9AA0AD.toInt())
+        tvTabForYou.setBackgroundResource(if (forYou) R.drawable.bg_tab_pill_selected else 0)
+        tvTabForYou.setTextColor(if (forYou) 0xFFFFFFFF.toInt() else 0xFF5F6B7A.toInt())
+        tvTabAllApps.setBackgroundResource(if (!forYou) R.drawable.bg_tab_pill_selected else 0)
+        tvTabAllApps.setTextColor(if (!forYou) 0xFFFFFFFF.toInt() else 0xFF5F6B7A.toInt())
 
         // Gentle crossfade instead of an abrupt swap when switching tabs.
         viewPager.animate().alpha(0f).setDuration(120).withEndAction {

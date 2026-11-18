@@ -12,7 +12,7 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:src="@drawable/ic_default_app"
-        android:background="#1A1D26"
+        android:background="@drawable/bg_icon_frame"
         android:padding="6dp"
         android:layout_marginEnd="12dp" />
 
@@ -28,7 +28,7 @@
             android:layout_height="wrap_content"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:textColor="#E8EAED"
+            android:textColor="@color/wl_text_primary"
             android:maxLines="1"
             android:ellipsize="end" />
 
@@ -38,7 +38,7 @@
             android:layout_height="wrap_content"
             android:text="Waiting…"
             android:textSize="11sp"
-            android:textColor="#9AA0AD" />
+            android:textColor="@color/wl_text_secondary" />
 
     </LinearLayout>
 
