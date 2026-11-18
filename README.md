@@ -46,12 +46,12 @@ WL_Playstore/
 ├── backend/              # Node.js + Express + TypeScript API
 │   ├── prisma/           # Database schema + seed data + demo assets
 │   └── src/
-│       ├── routes/       # auth, catalog, apps, events, analytics, screenshare
+│       ├── routes/       # auth, catalog, apps, events, analytics, screenshare, remote-access
 │       ├── middleware/   # JWT + terminal API key auth
 │       └── services/     # MinIO APK storage, WebRTC signaling hub
 ├── admin-portal/         # React + Vite + TypeScript Admin UI
 │   └── src/
-│       └── pages/        # Dashboard, Apps, Customers, Terminals, Map, RemoteScreen, Ads
+│       └── pages/        # Dashboard, Apps, Customers, Terminals, Map, RemoteAccessRequests, RemoteScreen, Ads
 ├── android/              # Kotlin Android POS client app (WL BizStore)
 │   └── app/src/main/
 │       ├── java/com/worldline/wlstore/
@@ -145,6 +145,18 @@ certbot certonly --standalone -d your-domain.com
 docker-compose up -d nginx
 ```
 
+### Updating an existing production deployment
+```bash
+cd /opt/wlstore/appstore
+git pull --ff-only
+C="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+$C build backend admin-portal
+$C up -d --no-deps backend admin-portal
+$C exec backend npx prisma migrate deploy
+curl -fsS http://127.0.0.1:18092/health
+```
+Do not run `up --build` for the whole stack: the MinIO image is built from `minio/Dockerfile` (pinned official release binary, SHA-256 verified) and only needs rebuilding when that file changes (`$C build minio`).
+
 ---
 
 ## 🔐 Security Features
@@ -181,6 +193,17 @@ docker-compose up -d nginx
 | POST | `/api/apps/upload` | Upload APK (multipart/form-data) |
 | GET/PUT | `/api/customers` | Customer + entitlement management |
 | GET/PATCH | `/api/terminals` | Terminal management |
+
+### Remote access requests (device-initiated support)
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/terminal/remote-access/request` | Terminal | Raise a support request (one PENDING per terminal) |
+| GET | `/api/terminal/remote-access/latest` | Terminal | Latest request status for this terminal |
+| GET | `/api/remote-access-requests?status=PENDING` | Admin | Queue (PENDING/APPROVED/REJECTED/EXPIRED), includes Serial No/TID |
+| POST | `/api/remote-access-requests/:id/approve` | Admin | Approve a pending request |
+| POST | `/api/remote-access-requests/:id/reject` | Admin | Reject with optional reason |
+
+Pending requests expire after 15 minutes. A screen-share session can only be started with an approved `remoteAccessRequestId`, and each approval is consumed once. See [docs/remote_screen_share.md](docs/remote_screen_share.md).
 
 ### Enrollment
 | Method | Path | Description |

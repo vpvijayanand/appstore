@@ -16,12 +16,37 @@ once connected, video and control traffic flow directly between the admin's
 browser and the device (optionally via the TURN relay if a direct/NAT-punched
 path isn't possible).
 
+## Device-Initiated Access Request (Approval Gate)
+
+A screen-share session can no longer be started without an approved request:
+
+1. On the terminal, the user taps **Request Remote Support** in the catalog
+   (`POST /api/terminal/remote-access/request`). Only one `PENDING` request
+   per terminal is allowed (enforced by a partial unique index); repeat taps
+   return the existing request.
+2. The request appears in the admin portal under **Remote Access Requests**
+   (`/remote-access-requests`) with Serial No, TID, customer and site. Admins
+   can **Approve + Connect** or **Reject** (optional reason). Both actions are
+   written to the admin audit log.
+3. **Approve + Connect** opens `/terminals/:id/screen?requestId=<id>`, which
+   calls `POST /api/terminals/:id/screen-share/sessions` with
+   `remoteAccessRequestId`.
+4. The backend only accepts an `APPROVED`, unexpired, unconsumed request that
+   belongs to that terminal, and marks it consumed (`consumedAt`,
+   `consumedSessionId`). Each approval therefore opens exactly one session.
+5. `PENDING` requests expire after 15 minutes (`EXPIRED`).
+
+Migrations: `20261117120000_add_remote_access_requests` and
+`20261117124000_remote_access_enforcement_and_expiry` (run
+`prisma migrate deploy` in production).
+
 ## Architecture
 
 ```
 Admin Portal (browser)                Backend                      Android Terminal
 ──────────────────────               ─────────                    ──────────────────
 1. POST /terminals/:id/screen-share/sessions
+   (needs an APPROVED remoteAccessRequestId)
                                  → creates ScreenShareSession (PENDING)
                                  → queues DeviceCommand(START_SCREEN_SHARE, {sessionId})
                                                                    2. picks up command

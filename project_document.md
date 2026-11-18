@@ -362,8 +362,9 @@ sequenceDiagram
     participant Relay as WS Signaling Hub (/ws/signaling)
     participant POS as Android POS Terminal
 
-    Support->>Admin: Click "Remote Screen" for Terminal ID
-    Admin->>Relay: POST /screen-share/sessions -> queues START_SCREEN_SHARE
+    POS->>Admin: Merchant taps "Request Remote Support" (queued with Serial No/TID)
+    Support->>Admin: Remote Access Requests page -> "Approve + Connect"
+    Admin->>Relay: POST /screen-share/sessions {remoteAccessRequestId} -> approval consumed once, queues START_SCREEN_SHARE
     POS->>Relay: Background Poll receives START_SCREEN_SHARE command
     POS->>POS: ScreenShareConsentActivity triggers MediaProjection prompt
     Note over POS: Merchant taps "Start Now" (Security Consent)
