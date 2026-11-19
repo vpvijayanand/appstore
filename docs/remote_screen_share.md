@@ -152,6 +152,45 @@ STUN-only, which works for most direct/NAT-friendly connections but will fail
 behind symmetric NAT or restrictive firewalls — TURN is the fallback relay
 for those cases.
 
+## Reliability fixes (branch `remote_fix`)
+
+These address the most common "remote access request doesn't work" reports. No
+new Prisma migration is required for any of them.
+
+- **Configurable, surfaced expiry.** `REMOTE_ACCESS_REQUEST_EXPIRY_MINUTES`
+  env var (default 15) controls how long a `PENDING` request lives before
+  auto-expiring. Both the device (`POST/GET .../remote-access/request`,
+  `.../latest`) and admin (`GET /remote-access-requests`, `GET
+  /remote-access-requests/:id`) responses now include `expiresAt` so neither
+  side is surprised when a request disappears.
+- **Device-initiated cancel.** `POST /api/terminal/remote-access/request/:id/cancel`
+  lets a terminal give up on its own `PENDING` request instead of being
+  dead-locked by the one-pending-per-terminal dedupe for up to 15 minutes. The
+  Android app now offers "Cancel & Resend" when it gets `alreadyPending`.
+- **Startup schema check.** `checkRemoteAccessSchema()` runs once at backend
+  boot and logs a loud, explicit error ("run `npx prisma migrate deploy`") if
+  the `remote_access_requests`/`device_commands` tables aren't reachable,
+  instead of letting every call 500 silently until someone notices.
+- **Accessibility-disabled visibility.** If `RemoteControlAccessibilityService`
+  isn't enabled on the terminal, `ScreenShareForegroundService` now reports it
+  via the existing `stageDetail` field (no schema change) instead of silently
+  dropping gestures. The admin portal's Remote Screen page matches this text
+  and shows a dismissible "View-only" banner instead of a false-positive
+  "Touch Input Active" indicator.
+- **Retry on progress/outcome reporting.** `reportProgress`/`reportOutcome`
+  (both `RemoteCommandExecutor` and `ScreenShareForegroundService`) now retry
+  up to 3 times with backoff before giving up, so a transient network blip
+  right after consent doesn't leave the admin's timeline stuck forever.
+- **Battery-optimization exemption prompt.** A one-time, dismissible dialog
+  asks the terminal to exempt WL BizStore from battery optimizations, so
+  `CommandPollService` keeps its ~10s foreground poll instead of falling back
+  to the 15-minute WorkManager poll after an admin approves a request.
+- **Richer Remote Screen page.** Session info panel (serial/TID/site/customer
+  + the original request message), a live session timer, a client-side
+  "Save Screenshot" button, a clipboard-paste shortcut for the remote
+  keyboard, a responsive two-column layout, and a "New Remote Request" button
+  on `ended`/`error` states (each approval is single-use by design).
+
 ## Known Limitations / Follow-ups
 
 - Android screen-share code has been verified with a full `gradlew
@@ -162,3 +201,6 @@ for those cases.
   session beyond the `ScreenShareSession` start/end timestamps.
 - Only one admin can view a given terminal's screen at a time (one session
   per `sessionId`, by design).
+- The accessibility-disabled warning is reported once per session and won't
+  auto-clear if the operator enables the service mid-session; admins can
+  dismiss it manually once control starts working.

@@ -17,8 +17,18 @@ import {
   Keyboard,
   Info,
   CheckCircle2,
+  Camera,
+  Clipboard,
+  Clock,
+  X,
+  ShieldAlert,
+  ListChecks,
 } from 'lucide-react';
-import { screenShareApi, terminalsApi, BASE_URL } from '../api';
+import { screenShareApi, terminalsApi, remoteAccessRequestsApi, BASE_URL } from '../api';
+
+// Matched against the device-reported stageDetail text verbatim
+// (see ScreenShareForegroundService.ACCESSIBILITY_WARNING on Android).
+const ACCESSIBILITY_WARNING_MARKER = 'Touch control unavailable';
 
 type Status =
   | 'starting'
@@ -69,6 +79,10 @@ export default function RemoteScreenPage() {
   const [inputText, setInputText] = useState('');
   const [commandStage, setCommandStage] = useState<string>('');
   const [commandHint, setCommandHint] = useState<string>('');
+  const [accessibilityWarning, setAccessibilityWarning] = useState(false);
+  const [warningDismissed, setWarningDismissed] = useState(false);
+  const [requestInfo, setRequestInfo] = useState<any>(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -78,6 +92,7 @@ export default function RemoteScreenPage() {
   const commandIdRef = useRef<string | null>(null);
   const pointerDownRef = useRef<{ x: number; y: number; t: number; longPressTimer?: any } | null>(null);
   const endedRef = useRef(false);
+  const connectedAtRef = useRef<number | null>(null);
 
   const cleanup = useCallback((markEnded: boolean) => {
     if (markEnded) endedRef.current = true;
@@ -99,7 +114,7 @@ export default function RemoteScreenPage() {
 
     const interval = setInterval(async () => {
       const cid = commandIdRef.current;
-      if (!cid || status === 'connected' || status === 'ended' || status === 'error') return;
+      if (!cid || status === 'ended' || status === 'error') return;
       try {
         const res = await terminalsApi.getCommand(id, cid);
         if (cancelled) return;
@@ -107,10 +122,13 @@ export default function RemoteScreenPage() {
         if (cmd) {
           setCommandStage(cmd.stage || '');
           setCommandHint(cmd.hint || '');
+          if (cmd.stageDetail && cmd.stageDetail.includes(ACCESSIBILITY_WARNING_MARKER)) {
+            setAccessibilityWarning(true);
+          }
           if (cmd.stage === 'CONSENT_PENDING') {
-            setStatus('consent_pending');
+            setStatus((prev) => (prev === 'connected' ? prev : 'consent_pending'));
           } else if (cmd.stage === 'CONNECTING' || cmd.stage === 'CAPTURING') {
-            setStatus('connecting');
+            setStatus((prev) => (prev === 'connected' ? prev : 'connecting'));
           } else if (cmd.status === 'FAILED') {
             setStatus('error');
             setErrorMsg(cmd.errorMessage || 'Device failed to start screen share');
@@ -144,6 +162,10 @@ export default function RemoteScreenPage() {
           return;
         }
 
+        remoteAccessRequestsApi.get(requestId).then((res) => {
+          if (!cancelled) setRequestInfo(res.data.request);
+        }).catch(() => {});
+
         const res = await screenShareApi.start(id, requestId);
         if (cancelled) return;
         const { session, commandId, iceServers } = res.data;
@@ -160,6 +182,7 @@ export default function RemoteScreenPage() {
 
         pc.ontrack = (event) => {
           if (videoRef.current) videoRef.current.srcObject = event.streams[0];
+          connectedAtRef.current = Date.now();
           setStatus('connected');
         };
 
@@ -312,6 +335,52 @@ export default function RemoteScreenPage() {
     setInputText('');
   };
 
+  const handlePasteClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setInputText((prev) => prev + text);
+    } catch {
+      // clipboard permission denied/unavailable — ignore
+    }
+  };
+
+  const handleScreenshot = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `remote-screen-${terminalLabel || id}-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+
+  // Live session duration, ticking once connected.
+  useEffect(() => {
+    if (status !== 'connected') return;
+    const tick = () => {
+      if (connectedAtRef.current) setElapsedSec(Math.floor((Date.now() - connectedAtRef.current) / 1000));
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [status]);
+
+  const formatDuration = (totalSeconds: number) => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
   const stopSession = () => {
     if (!id || !sessionRef.current) {
       navigate('/terminals');
@@ -334,6 +403,12 @@ export default function RemoteScreenPage() {
             >
               {status === 'connected' ? 'LIVE' : status.toUpperCase()}
             </span>
+            {status === 'connected' && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#64748b' }}>
+                <Clock size={13} />
+                {formatDuration(elapsedSec)}
+              </span>
+            )}
           </div>
           <p className="page-subtitle">
             {STATUS_LABEL[status]}
@@ -342,6 +417,12 @@ export default function RemoteScreenPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
+          {(status === 'ended' || status === 'error') && (
+            <button className="btn btn-secondary" onClick={() => navigate('/remote-access-requests')}>
+              <ListChecks size={14} />
+              New Remote Request
+            </button>
+          )}
           <button className="btn btn-secondary" onClick={() => navigate('/terminals')}>
             <ArrowLeft size={14} />
             Back to Terminals
@@ -380,11 +461,46 @@ export default function RemoteScreenPage() {
         </div>
       )}
 
+      {accessibilityWarning && !warningDismissed && (
+        <div
+          className="alert alert-warning"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            background: '#fff3cd',
+            borderColor: '#ffeeba',
+            color: '#856404',
+            padding: '14px 18px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+          }}
+        >
+          <ShieldAlert size={24} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <strong>View-only — touch control unavailable:</strong>
+            <div>
+              The terminal's Accessibility Service isn't enabled, so taps/swipes/typing won't reach the
+              device. Enable it on the terminal under <strong>Settings → Accessibility → WL BizStore
+              Remote Control</strong>, then dismiss this notice.
+            </div>
+          </div>
+          <button
+            className="btn btn-secondary"
+            title="Dismiss"
+            onClick={() => setWarningDismissed(true)}
+            style={{ padding: '4px 8px', flexShrink: 0 }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Main Terminal Frame */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(320px, 480px) 1fr',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
           gap: '24px',
           alignItems: 'start',
         }}
@@ -418,16 +534,32 @@ export default function RemoteScreenPage() {
             }}
           >
             <span>WL BizStore Terminal Display</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: controlEnabled ? '#10b981' : '#f59e0b',
-                }}
-              />
-              {controlEnabled ? 'Touch Input Active' : 'Connecting Input…'}
+            <span style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: controlEnabled && !accessibilityWarning ? '#10b981' : '#f59e0b',
+                  }}
+                />
+                {!controlEnabled
+                  ? 'Connecting Input…'
+                  : accessibilityWarning
+                  ? 'View Only'
+                  : 'Touch Input Active'}
+              </span>
+              <button
+                className="btn btn-secondary"
+                title="Save screenshot"
+                disabled={status !== 'connected'}
+                onClick={handleScreenshot}
+                style={{ padding: '3px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                <Camera size={12} />
+                Screenshot
+              </button>
             </span>
           </div>
 
@@ -581,6 +713,34 @@ export default function RemoteScreenPage() {
 
         {/* Remote Control Panel & Quick Actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* Session Info */}
+          {requestInfo && (
+            <div className="card" style={{ padding: '20px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <Info size={18} />
+                Session Info
+              </h3>
+              <dl style={{ fontSize: '12px', color: '#334155', margin: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 12px' }}>
+                <dt style={{ color: '#94a3b8' }}>Terminal</dt>
+                <dd style={{ margin: 0 }}>{requestInfo.terminal?.terminalId || '—'}</dd>
+                <dt style={{ color: '#94a3b8' }}>Serial No</dt>
+                <dd style={{ margin: 0 }}>{requestInfo.terminal?.serialNo || '—'}</dd>
+                <dt style={{ color: '#94a3b8' }}>TID</dt>
+                <dd style={{ margin: 0 }}>{requestInfo.terminal?.terminalMaster?.tid || '—'}</dd>
+                <dt style={{ color: '#94a3b8' }}>Site</dt>
+                <dd style={{ margin: 0 }}>{requestInfo.terminal?.site || '—'}</dd>
+                <dt style={{ color: '#94a3b8' }}>Customer</dt>
+                <dd style={{ margin: 0 }}>{requestInfo.terminal?.customer?.name || '—'}</dd>
+                {requestInfo.message && (
+                  <>
+                    <dt style={{ color: '#94a3b8' }}>Request</dt>
+                    <dd style={{ margin: 0 }}>{requestInfo.message}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          )}
+
           {/* Direct Input & Text Injection */}
           <div className="card" style={{ padding: '20px' }}>
             <h3 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -600,6 +760,16 @@ export default function RemoteScreenPage() {
                 disabled={!controlEnabled}
                 style={{ flex: 1 }}
               />
+              <button
+                type="button"
+                className="btn btn-secondary"
+                title="Paste from clipboard"
+                disabled={!controlEnabled}
+                onClick={handlePasteClipboard}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Clipboard size={14} />
+              </button>
               <button
                 type="submit"
                 className="btn btn-primary"

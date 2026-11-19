@@ -207,11 +207,16 @@ data class RemoteAccessRequestRequest(
 
 data class RemoteAccessRequestResponse(
     val request: RemoteAccessRequestDto,
-    val alreadyPending: Boolean = false
+    val alreadyPending: Boolean = false,
+    val expiresAt: String? = null
 )
 
 data class RemoteAccessRequestDto(
     val id: String,
     val status: String,
     val requestedAt: String
+)
+
+data class CancelRemoteAccessRequestResponse(
+    val request: RemoteAccessRequestDto
 )

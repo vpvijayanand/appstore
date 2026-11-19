@@ -85,6 +85,7 @@ class CatalogActivity : AppCompatActivity() {
         tvTabForYou.setTextColor(0xFFFFFFFF.toInt())
 
         loadCatalog()
+        maybeRequestBatteryOptimizationExemption()
     }
 
     override fun onResume() {
@@ -329,12 +330,15 @@ class CatalogActivity : AppCompatActivity() {
                 val response = ApiClient.service.createRemoteAccessRequest(RemoteAccessRequestRequest(message = message))
                 if (response.isSuccessful && response.body() != null) {
                     val body = response.body()!!
-                    val text = if (body.alreadyPending) {
-                        "A remote support request is already pending approval."
+                    if (body.alreadyPending) {
+                        showAlreadyPendingDialog(body.request.id, body.expiresAt)
                     } else {
-                        "Remote support request sent. Please wait for admin approval."
+                        Toast.makeText(
+                            this@CatalogActivity,
+                            "Remote support request sent. Please wait for admin approval.",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
-                    Toast.makeText(this@CatalogActivity, text, Toast.LENGTH_LONG).show()
                 } else {
                     Toast.makeText(this@CatalogActivity, "Failed to send request (${response.code()})", Toast.LENGTH_LONG).show()
                 }
@@ -346,8 +350,84 @@ class CatalogActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * A prior request is still PENDING (one-pending-per-terminal dedupe), which would otherwise
+     * be a silent dead end for up to 15 minutes. Offer to cancel it and resend immediately.
+     */
+    private fun showAlreadyPendingDialog(requestId: String, expiresAtIso: String?) {
+        val remaining = expiresAtIso?.let {
+            try {
+                val expiresAt = java.time.Instant.parse(it)
+                val minutes = java.time.Duration.between(java.time.Instant.now(), expiresAt).toMinutes()
+                if (minutes > 0) " It will expire automatically in about $minutes min if no one responds." else ""
+            } catch (e: Exception) {
+                ""
+            }
+        } ?: ""
+
+        AlertDialog.Builder(this)
+            .setTitle("Remote support request pending")
+            .setMessage("A remote support request for this terminal is already waiting for admin approval.$remaining")
+            .setPositiveButton("Keep Waiting", null)
+            .setNegativeButton("Cancel & Resend") { _, _ -> cancelAndResendRemoteAccess(requestId) }
+            .show()
+    }
+
+    private fun cancelAndResendRemoteAccess(requestId: String) {
+        btnRequestRemoteAccess.isEnabled = false
+        lifecycleScope.launch {
+            try {
+                ApiClient.service.cancelRemoteAccessRequest(requestId)
+            } catch (e: Exception) {
+                // Best-effort: even if the cancel call fails we still try to resend below.
+            } finally {
+                btnRequestRemoteAccess.isEnabled = true
+            }
+            requestRemoteAccess()
+        }
+    }
+
+    /**
+     * One-time, non-naggy prompt to exempt the app from battery optimizations so
+     * CommandPollService keeps polling every ~10s instead of being killed and falling back to
+     * the 15-minute WorkManager poll (which makes approved remote-access sessions feel stuck).
+     */
+    private fun maybeRequestBatteryOptimizationExemption() {
+        val prefs = getSharedPreferences("wl_store_prefs", MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_BATTERY_PROMPT_SHOWN, false)) return
+
+        val powerManager = getSystemService(android.os.PowerManager::class.java)
+        if (powerManager?.isIgnoringBatteryOptimizations(packageName) == true) {
+            prefs.edit().putBoolean(KEY_BATTERY_PROMPT_SHOWN, true).apply()
+            return
+        }
+
+        prefs.edit().putBoolean(KEY_BATTERY_PROMPT_SHOWN, true).apply()
+        AlertDialog.Builder(this)
+            .setTitle("Keep remote support responsive")
+            .setMessage(
+                "To make sure remote commands (like screen support) reach this terminal quickly, " +
+                    "please allow WL BizStore to run without battery restrictions."
+            )
+            .setPositiveButton("Allow") { _, _ ->
+                try {
+                    startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            android.net.Uri.parse("package:$packageName")
+                        )
+                    )
+                } catch (e: Exception) {
+                    // Some OEMs/ROMs block this intent; not fatal, just skip.
+                }
+            }
+            .setNegativeButton("Not Now", null)
+            .show()
+    }
+
     companion object {
         private const val POPUP_POLL_INTERVAL_MS = 2 * 60 * 1000L
+        private const val KEY_BATTERY_PROMPT_SHOWN = "battery_opt_prompt_shown"
     }
 }
 

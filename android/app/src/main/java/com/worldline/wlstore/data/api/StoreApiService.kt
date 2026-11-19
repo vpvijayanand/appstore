@@ -63,6 +63,9 @@ interface StoreApiService {
 
     @POST("terminal/remote-access/request")
     suspend fun createRemoteAccessRequest(@Body body: RemoteAccessRequestRequest): Response<RemoteAccessRequestResponse>
+
+    @POST("terminal/remote-access/request/{id}/cancel")
+    suspend fun cancelRemoteAccessRequest(@Path("id") id: String): Response<CancelRemoteAccessRequestResponse>
 }
 
 // ── Singleton Client ──────────────────────────────────────────────────────────

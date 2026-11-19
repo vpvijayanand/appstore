@@ -258,10 +258,8 @@ object RemoteCommandExecutor {
     // ── Reporting helpers ────────────────────────────────────────────────────
 
     suspend fun reportProgress(commandId: String, stage: String, detail: String? = null) {
-        try {
-            ApiClient.service.reportCommandProgress(commandId, CommandProgressRequest(stage, detail))
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to report progress ($stage): ${e.message}")
+        retrying("progress ($stage)") {
+            ApiClient.service.reportCommandProgress(commandId, CommandProgressRequest(stage, detail)).isSuccessful
         }
     }
 
@@ -273,11 +271,27 @@ object RemoteCommandExecutor {
         stage: String? = null,
         detail: String? = null,
     ): Boolean {
-        return try {
+        return retrying("outcome ($status)") {
             ApiClient.service.completeCommand(commandId, CompleteCommandRequest(status, errorMessage, stage, detail)).isSuccessful
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to report command outcome: ${e.message}")
-            false
         }
     }
+
+    /**
+     * Retries a flaky network call up to [RETRY_BACKOFF_MS].size times before giving up, so a
+     * transient blip right after consent/completion doesn't leave the admin portal's timeline
+     * stuck forever on a stage that was never actually the final one.
+     */
+    private suspend fun retrying(label: String, block: suspend () -> Boolean): Boolean {
+        RETRY_BACKOFF_MS.forEachIndexed { attempt, backoffMs ->
+            try {
+                if (block()) return true
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to report $label (attempt ${attempt + 1}): ${e.message}")
+            }
+            if (attempt < RETRY_BACKOFF_MS.lastIndex) delay(backoffMs)
+        }
+        return false
+    }
+
+    private val RETRY_BACKOFF_MS = longArrayOf(0L, 1000L, 2000L, 4000L)
 }

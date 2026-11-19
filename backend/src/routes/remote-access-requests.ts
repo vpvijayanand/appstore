@@ -2,7 +2,27 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/auth';
-import { expireStaleRemoteAccessRequests } from '../services/remote-access-requests';
+import { expireStaleRemoteAccessRequests, computeExpiresAt } from '../services/remote-access-requests';
+
+const terminalInclude = {
+  terminal: {
+    select: {
+      id: true,
+      terminalId: true,
+      serialNo: true,
+      model: true,
+      site: true,
+      lastSeenAt: true,
+      customer: { select: { name: true, code: true } },
+      terminalMaster: { select: { tid: true } },
+    },
+  },
+} as const;
+
+const withExpiresAt = <T extends { status: string; requestedAt: Date }>(request: T) => ({
+  ...request,
+  expiresAt: request.status === 'PENDING' ? computeExpiresAt(request.requestedAt) : null,
+});
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -25,25 +45,21 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
 
   const requests = await prisma.remoteAccessRequest.findMany({
     where,
-    include: {
-      terminal: {
-        select: {
-          id: true,
-          terminalId: true,
-          serialNo: true,
-          model: true,
-          site: true,
-          lastSeenAt: true,
-          customer: { select: { name: true, code: true } },
-          terminalMaster: { select: { tid: true } },
-        },
-      },
-    },
+    include: terminalInclude,
     orderBy: { requestedAt: 'desc' },
     take,
   });
 
-  return res.json({ requests });
+  return res.json({ requests: requests.map(withExpiresAt) });
+});
+
+router.get('/:id', requireAdmin, async (req: Request, res: Response) => {
+  const request = await prisma.remoteAccessRequest.findUnique({
+    where: { id: req.params.id },
+    include: terminalInclude,
+  });
+  if (!request) return res.status(404).json({ error: 'Remote access request not found' });
+  return res.json({ request: withExpiresAt(request) });
 });
 
 router.post('/:id/approve', requireAdmin, async (req: Request, res: Response) => {

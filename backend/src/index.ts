@@ -28,6 +28,7 @@ import remoteAccessRequestsRouter from './routes/remote-access-requests';
 import remoteAccessDeviceRouter from './routes/remote-access-device';
 import { initMinIO } from './services/minio';
 import { attachSignalingServer } from './services/signaling';
+import { checkRemoteAccessSchema } from './services/remote-access-requests';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -135,6 +136,14 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 // rather than needing a second listener/port to proxy.
 const httpServer = http.createServer(app);
 attachSignalingServer(httpServer);
+
+checkRemoteAccessSchema().catch((err) => {
+  console.error(
+    '[RemoteAccess] remote_access_requests/device_commands tables are missing or unreadable — ' +
+      'remote access requests will fail until migrations are applied. Run `npx prisma migrate deploy`. Details:',
+    err?.message || err
+  );
+});
 
 initMinIO()
   .catch((err) => {

@@ -72,6 +72,8 @@ class ScreenShareForegroundService : Service() {
     private var dataChannel: DataChannel? = null
     private var signalingClient: SignalingClient? = null
     private var commandId: String? = null
+    private var lastStage: String = "CAPTURING"
+    private var accessibilityWarningSent = false
 
     override fun onCreate() {
         super.onCreate()
@@ -165,7 +167,12 @@ class ScreenShareForegroundService : Service() {
             val track = factory.createVideoTrack("wl_screen0", source)
             videoTrack = track
 
-            reportProgress("CAPTURING", "Capturing terminal display (${metrics.widthPixels}x${metrics.heightPixels})")
+            var captureDetail = "Capturing terminal display (${metrics.widthPixels}x${metrics.heightPixels})"
+            if (RemoteControlAccessibilityService.instance == null) {
+                captureDetail += " — $ACCESSIBILITY_WARNING"
+                accessibilityWarningSent = true
+            }
+            reportProgress("CAPTURING", captureDetail)
 
             serviceScope.launch {
                 val iceServers = fetchIceServers()
@@ -319,6 +326,10 @@ class ScreenShareForegroundService : Service() {
         val service = RemoteControlAccessibilityService.instance
         if (service == null) {
             Log.w(TAG, "Remote control requested but the Accessibility Service isn't enabled on this device")
+            if (!accessibilityWarningSent) {
+                accessibilityWarningSent = true
+                reportProgress(lastStage, ACCESSIBILITY_WARNING)
+            }
             return
         }
         when (obj.get("type")?.asString) {
@@ -356,11 +367,10 @@ class ScreenShareForegroundService : Service() {
 
     private fun reportProgress(stage: String, detail: String? = null) {
         val id = commandId ?: return
+        lastStage = stage
         serviceScope.launch {
-            try {
-                ApiClient.service.reportCommandProgress(id, CommandProgressRequest(stage, detail))
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to report screen-share progress: ${e.message}")
+            retrying("screen-share progress ($stage)") {
+                ApiClient.service.reportCommandProgress(id, CommandProgressRequest(stage, detail)).isSuccessful
             }
         }
     }
@@ -368,12 +378,23 @@ class ScreenShareForegroundService : Service() {
     private fun reportCommandOutcome(status: String, errorMessage: String? = null) {
         val id = commandId ?: return
         serviceScope.launch {
-            try {
-                ApiClient.service.completeCommand(id, CompleteCommandRequest(status, errorMessage))
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to report screen-share command outcome: ${e.message}")
+            retrying("screen-share outcome ($status)") {
+                ApiClient.service.completeCommand(id, CompleteCommandRequest(status, errorMessage)).isSuccessful
             }
         }
+    }
+
+    /** Retries a flaky network call a few times so a transient blip doesn't leave the admin's timeline stuck. */
+    private suspend fun retrying(label: String, block: suspend () -> Boolean): Boolean {
+        for ((attempt, backoffMs) in RETRY_BACKOFF_MS.withIndex()) {
+            try {
+                if (block()) return true
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to report $label (attempt ${attempt + 1}): ${e.message}")
+            }
+            if (attempt < RETRY_BACKOFF_MS.lastIndex) kotlinx.coroutines.delay(backoffMs)
+        }
+        return false
     }
 
     private fun buildSignalingUrl(sessionId: String): String {
@@ -428,6 +449,12 @@ class ScreenShareForegroundService : Service() {
         private const val CHANNEL_ID = "screen_share"
         private const val NOTIFICATION_ID = 4821
         private const val SCREEN_FPS = 12
+        private val RETRY_BACKOFF_MS = longArrayOf(0L, 1000L, 2000L, 4000L)
+
+        // Matched verbatim by the admin portal (RemoteScreenPage.tsx) against stageDetail to
+        // show a "view only" banner instead of a false "Touch Input Active" indicator.
+        const val ACCESSIBILITY_WARNING =
+            "Touch control unavailable — enable Accessibility Service in Settings > Accessibility > WL BizStore Remote Control on this terminal."
 
         const val EXTRA_SESSION_ID = "session_id"
         const val EXTRA_RESULT_CODE = "result_code"

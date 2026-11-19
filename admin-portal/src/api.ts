@@ -123,6 +123,8 @@ export const screenShareApi = {
 export const remoteAccessRequestsApi = {
   list: (status = 'PENDING', take = 100) =>
     api.get('/remote-access-requests', { params: { status, take } }),
+  get: (requestId: string) =>
+    api.get(`/remote-access-requests/${requestId}`),
   approve: (requestId: string) =>
     api.post(`/remote-access-requests/${requestId}/approve`),
   reject: (requestId: string, reason?: string) =>

@@ -30,6 +30,10 @@
     <!-- Always-on command polling (CommandPollService) + restart after reboot/update (BootReceiver). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Lets us ask the user to exempt the app from battery optimizations, so CommandPollService
+         (remote-access requests, screen-share, restart/reboot commands) keeps polling every ~10s
+         instead of being killed and falling back to the 15-minute WorkManager poll. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:name=".WLStoreApplication"

@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { requireTerminal } from '../middleware/auth';
-import { expireStaleRemoteAccessRequests } from '../services/remote-access-requests';
+import { expireStaleRemoteAccessRequests, computeExpiresAt } from '../services/remote-access-requests';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -23,7 +23,7 @@ router.post('/request', requireTerminal, async (req: Request, res: Response) => 
   });
 
   if (pending) {
-    return res.json({ request: pending, alreadyPending: true });
+    return res.json({ request: pending, alreadyPending: true, expiresAt: computeExpiresAt(pending.requestedAt) });
   }
 
   try {
@@ -35,7 +35,7 @@ router.post('/request', requireTerminal, async (req: Request, res: Response) => 
       },
     });
 
-    return res.json({ request, alreadyPending: false });
+    return res.json({ request, alreadyPending: false, expiresAt: computeExpiresAt(request.requestedAt) });
   } catch (e: any) {
     if (e?.code === 'P2002') {
       const existingPending = await prisma.remoteAccessRequest.findFirst({
@@ -43,7 +43,7 @@ router.post('/request', requireTerminal, async (req: Request, res: Response) => 
         orderBy: { requestedAt: 'desc' },
       });
       if (existingPending) {
-        return res.json({ request: existingPending, alreadyPending: true });
+        return res.json({ request: existingPending, alreadyPending: true, expiresAt: computeExpiresAt(existingPending.requestedAt) });
       }
     }
     console.error(e);
@@ -56,7 +56,34 @@ router.get('/latest', requireTerminal, async (req: Request, res: Response) => {
     where: { terminalId: req.terminal!.dbId },
     orderBy: { requestedAt: 'desc' },
   });
-  return res.json({ request: latest || null });
+  return res.json({
+    request: latest || null,
+    expiresAt: latest && latest.status === 'PENDING' ? computeExpiresAt(latest.requestedAt) : null,
+  });
+});
+
+// Lets the terminal give up on its own pending request instead of waiting out the
+// expiry window — unblocks the one-pending-per-terminal dedupe lock immediately.
+router.post('/request/:id/cancel', requireTerminal, async (req: Request, res: Response) => {
+  const changed = await prisma.remoteAccessRequest.updateMany({
+    where: { id: req.params.id, terminalId: req.terminal!.dbId, status: 'PENDING' },
+    data: {
+      status: 'REJECTED',
+      rejectionReason: 'Cancelled by terminal',
+      rejectedAt: new Date(),
+    },
+  });
+
+  if (changed.count === 0) {
+    const existing = await prisma.remoteAccessRequest.findFirst({
+      where: { id: req.params.id, terminalId: req.terminal!.dbId },
+    });
+    if (!existing) return res.status(404).json({ error: 'Remote access request not found' });
+    return res.status(409).json({ error: `Request is already ${existing.status.toLowerCase()}` });
+  }
+
+  const cancelled = await prisma.remoteAccessRequest.findUnique({ where: { id: req.params.id } });
+  return res.json({ request: cancelled });
 });
 
 export default router;
