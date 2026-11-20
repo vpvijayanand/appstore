@@ -5,6 +5,7 @@ import android.content.pm.PackageInstaller
 import android.content.Intent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -21,6 +22,8 @@ import java.util.concurrent.ConcurrentHashMap
 object InstallManager {
 
     private const val INSTALL_RESULT_TIMEOUT_MS = 5 * 60_000L
+    private const val FALLBACK_INSTALL_TIMEOUT_MS = 3 * 60_000L
+    private const val FALLBACK_POLL_INTERVAL_MS = 2_000L
     private val installWaiters = ConcurrentHashMap<Int, CompletableDeferred<Pair<Boolean, String>>>()
 
     /** Downloads a package file from a signed URL into the app cache directory. */
@@ -92,7 +95,8 @@ object InstallManager {
     suspend fun installApk(
         context: Context,
         apkFile: File,
-        packageName: String
+        packageName: String,
+        expectedVersionCode: Long
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         try {
             val packageInstaller = context.packageManager.packageInstaller
@@ -134,9 +138,12 @@ object InstallManager {
             installWaiters.remove(sessionId)
             outcome
         } catch (e: IOException) {
-            // Non-Device-Owner flow cannot guarantee silent-result confirmation.
+            // Non-Device-Owner flow cannot guarantee a silent PackageInstaller callback —
+            // fall back to the interactive system install dialog and poll PackageManager
+            // for the real outcome instead of assuming failure (the user may well tap
+            // "Install" and have it succeed, even though we can't get a direct callback).
             installApkFallback(context, apkFile)
-            false to "Interactive install required; silent confirmation unavailable"
+            awaitFallbackInstallResult(context, packageName, expectedVersionCode)
         } catch (e: Exception) {
             false to (e.message ?: "Install failed")
         }
@@ -145,6 +152,27 @@ object InstallManager {
     fun reportInstallResult(sessionId: Int, success: Boolean, message: String) {
         val deferred = installWaiters.remove(sessionId) ?: return
         if (!deferred.isCompleted) deferred.complete(success to message)
+    }
+
+    /**
+     * Polls PackageManager for up to [FALLBACK_INSTALL_TIMEOUT_MS] after launching the
+     * interactive install dialog, since [ACTION_INSTALL_PACKAGE] started via a plain
+     * startActivity (not startActivityForResult) gives us no direct completion callback.
+     */
+    private suspend fun awaitFallbackInstallResult(
+        context: Context,
+        packageName: String,
+        expectedVersionCode: Long
+    ): Pair<Boolean, String> {
+        val deadline = System.currentTimeMillis() + FALLBACK_INSTALL_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            delay(FALLBACK_POLL_INTERVAL_MS)
+            val installedVersion = InstalledAppsHelper.getInstalledVersionCode(context, packageName)
+            if (installedVersion != null && installedVersion >= expectedVersionCode) {
+                return true to "Installed via interactive confirmation"
+            }
+        }
+        return false to "Interactive install was not confirmed within ${FALLBACK_INSTALL_TIMEOUT_MS / 60_000} minutes"
     }
 
     private fun installApkFallback(context: Context, apkFile: File) {

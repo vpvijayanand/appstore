@@ -234,7 +234,8 @@ class AppDetailActivity : AppCompatActivity() {
                 val (success, message) = InstallManager.installApk(
                     context = this@AppDetailActivity,
                     apkFile = apkFile,
-                    packageName = a.packageName
+                    packageName = a.packageName,
+                    expectedVersionCode = a.versionCode.toLong()
                 )
                 reportResult(dlData.eventId, a, if (success) "SUCCESS" else "FAILED")
                 if (success) {

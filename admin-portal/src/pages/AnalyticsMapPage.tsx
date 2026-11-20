@@ -50,7 +50,7 @@ export default function AnalyticsMapPage() {
     <div>
       <div className="page-header">
         <div>
-          <h2 className="page-title">Download Location Map</h2>
+          <h2 className="page-title">Download HeatMap</h2>
           <p className="page-subtitle">GPS location of every app download event</p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

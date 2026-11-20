@@ -129,7 +129,7 @@ class DefaultAppsSetupActivity : AppCompatActivity() {
             }
 
             setRowStatus(a.id, "Installing…")
-            val (success, message) = InstallManager.installApk(this, apkFile, a.packageName)
+            val (success, message) = InstallManager.installApk(this, apkFile, a.packageName, a.versionCode.toLong())
             TelemetryService.reportDownloadEvent(this, dlData.eventId, a.id, a.version, if (success) "SUCCESS" else "FAILED")
             setRowStatus(a.id, if (success) "✅ Installed" else "❌ $message")
         } catch (e: Exception) {

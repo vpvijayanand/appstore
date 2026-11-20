@@ -474,7 +474,7 @@ export default function TerminalsPage() {
                           style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
                           <Power size={12} color="#0284c7" />
-                          Force Restart
+                          App Restart
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
@@ -484,7 +484,7 @@ export default function TerminalsPage() {
                           style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
                           <RotateCw size={12} color="#f59e0b" />
-                          Restart Device
+                          Reboot Device
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
