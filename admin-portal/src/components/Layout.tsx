@@ -17,7 +17,7 @@ const navItems = [
   { path: '/assignments', icon: Share2, label: 'App Assignments' },
   { path: '/groups', icon: Boxes, label: 'Device Groups' },
   { path: '/advertisements', icon: Megaphone, label: 'Advertisements' },
-  { path: '/map', icon: Map, label: 'Location Map' },
+  { path: '/map', icon: Map, label: 'Download HeatMap' },
   { path: '/downloads', icon: Download, label: 'Downloads' },
 ];
 

@@ -1,8 +1,12 @@
 package com.worldline.wlstore.service
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -30,40 +34,64 @@ object TelemetryService {
     )
 
     /**
-     * Gets a single GPS fix using FusedLocationProviderClient.
-     * Falls back to network location if GPS signal is weak (common for indoor POS).
+     * Gets a single location fix, preferring Google Play Services' FusedLocationProviderClient
+     * (best accuracy/power tradeoff) and falling back to the plain LocationManager API — which
+     * works without Play Services — since many non-Google-certified POS terminals (e.g. Castles
+     * CTOS devices) ship without GMS at all, where FusedLocationProviderClient can throw
+     * NoClassDefFoundError (an Error, not an Exception) rather than failing gracefully.
      *
-     * Bounded to 8s and resilient to ANY failure (missing permission, Play
-     * Services unavailable/outdated on an emulator, no location fix available,
-     * etc.) so a GPS problem never blocks network-type/status reporting below.
+     * Bounded to 8s and resilient to ANY failure (missing permission, Play Services
+     * unavailable/outdated/absent, no location fix available, etc.) via catching Throwable,
+     * not just Exception, so a GPS problem never blocks network-type/status reporting below.
      */
     suspend fun getCurrentLocation(context: Context): GpsResult {
-        return withTimeoutOrNull(8_000) {
-            suspendCancellableCoroutine { cont ->
-                try {
-                    val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-                    val cts = CancellationTokenSource()
+        val fused = try {
+            withTimeoutOrNull(8_000) {
+                suspendCancellableCoroutine<GpsResult?> { cont ->
+                    try {
+                        val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                        val cts = CancellationTokenSource()
 
-                    cont.invokeOnCancellation { cts.cancel() }
+                        cont.invokeOnCancellation { cts.cancel() }
 
-                    fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
-                        .addOnSuccessListener { location ->
-                            if (location != null) {
-                                cont.resume(GpsResult(location.latitude, location.longitude, location.accuracy))
-                            } else {
-                                cont.resume(GpsResult(null, null, null))
+                        fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
+                            .addOnSuccessListener { location ->
+                                cont.resume(location?.let { GpsResult(it.latitude, it.longitude, it.accuracy) })
                             }
-                        }
-                        .addOnFailureListener {
-                            cont.resume(GpsResult(null, null, null))
-                        }
-                } catch (e: Exception) {
-                    // Permission not granted, Play Services unavailable/outdated, or any
-                    // other GMS failure — never let this block telemetry reporting.
-                    cont.resume(GpsResult(null, null, null))
+                            .addOnFailureListener { cont.resume(null) }
+                    } catch (e: Throwable) {
+                        cont.resume(null)
+                    }
                 }
             }
-        } ?: GpsResult(null, null, null)
+        } catch (e: Throwable) {
+            null
+        }
+        if (fused?.latitude != null) return fused
+
+        return try {
+            getLastKnownLocationFallback(context)
+        } catch (e: Throwable) {
+            GpsResult(null, null, null)
+        }
+    }
+
+    /** Non-GMS fallback: best of the last known fixes from any available location provider. */
+    private fun getLastKnownLocationFallback(context: Context): GpsResult {
+        val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!hasPermission) return GpsResult(null, null, null)
+
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            ?: return GpsResult(null, null, null)
+
+        val best = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER)
+            .mapNotNull { provider ->
+                try { locationManager.getLastKnownLocation(provider) } catch (e: Exception) { null }
+            }
+            .maxByOrNull { it.time }
+
+        return if (best != null) GpsResult(best.latitude, best.longitude, best.accuracy) else GpsResult(null, null, null)
     }
 
     /**
@@ -94,10 +122,14 @@ object TelemetryService {
         try {
             val gps = try {
                 getCurrentLocation(context)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 GpsResult(null, null, null)
             }
-            val networkType = getNetworkType(context)
+            val networkType = try {
+                getNetworkType(context)
+            } catch (e: Throwable) {
+                "UNKNOWN"
+            }
 
             val request = DownloadEventRequest(
                 eventId = eventId,
@@ -116,8 +148,8 @@ object TelemetryService {
             } else {
                 Result.failure(Exception("Event report failed: ${response.code()}"))
             }
-        } catch (e: Exception) {
-            Result.failure(e)
+        } catch (e: Throwable) {
+            Result.failure(if (e is Exception) e else Exception(e))
         }
     }
 }
