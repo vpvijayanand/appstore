@@ -28,6 +28,10 @@ interface StoreApiService {
     @POST("events")
     suspend fun reportEvent(@Body event: DownloadEventRequest): Response<EventResponse>
 
+    // Corrects PENDING/DOWNLOADING/FAILED events to SUCCESS for apps really installed
+    @POST("events/reconcile")
+    suspend fun reconcileEvents(@Body body: ReconcileRequest): Response<Unit>
+
     // Auth — enrollment
     @POST("auth/terminal/enroll")
     suspend fun enrollTerminal(@Body request: EnrollmentRequest): Response<EnrollmentResponse>

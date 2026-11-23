@@ -227,6 +227,7 @@ class CatalogActivity : AppCompatActivity() {
                     } else {
                         applyFilterAndRender()
                         checkPendingDefaultApps()
+                        reconcileInstallStatuses()
                     }
                 } else {
                     showError("Failed to load catalog: ${response.code()}")
@@ -236,6 +237,20 @@ class CatalogActivity : AppCompatActivity() {
             } finally {
                 progressBar.visibility = View.GONE
             }
+        }
+    }
+
+    /** Tells the server which catalog packages are really installed so stuck/failed events get corrected. */
+    private fun reconcileInstallStatuses() {
+        val installed = fullCatalog.flatMap { it.apps }.mapNotNull { app ->
+            InstalledAppsHelper.getInstalledVersionCode(this, app.packageName)
+                ?.let { com.worldline.wlstore.data.model.InstalledPackage(app.packageName, it.toInt()) }
+        }.distinctBy { it.packageName }
+        if (installed.isEmpty()) return
+        lifecycleScope.launch {
+            try {
+                ApiClient.service.reconcileEvents(com.worldline.wlstore.data.model.ReconcileRequest(installed))
+            } catch (_: Exception) { /* best effort */ }
         }
     }
 

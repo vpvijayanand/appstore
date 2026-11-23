@@ -85,6 +85,10 @@ data class EventResponse(
     val status: String
 )
 
+data class InstalledPackage(val packageName: String, val versionCode: Int)
+
+data class ReconcileRequest(val installed: List<InstalledPackage>)
+
 // ── Auth Models ──────────────────────────────────────────────────────────────
 
 data class EnrollmentRequest(

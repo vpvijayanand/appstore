@@ -287,5 +287,72 @@ router.get('/:id/downloads', requireAdmin, async (req: Request, res: Response) =
   });
 });
 
+// ── Resolved app assignments for one Serial No / TID ──────────────────────────
+// Every app this device can get through an assignment, split by mode
+// (DEFAULT = auto-installed, ON_REQUEST = user installs from the catalog), with
+// where it came from (CUSTOMER vs a TERMINAL override) and its latest install status.
+router.get('/:id/apps', requireAdmin, async (req: Request, res: Response) => {
+  await expireStaleDownloadEvents(prisma);
+
+  const master = await prisma.terminalMaster.findUnique({
+    where: { id: req.params.id },
+    include: { terminal: { select: { id: true } }, customer: { select: { name: true } } },
+  });
+  if (!master) return res.status(404).json({ error: 'Terminal master not found' });
+
+  const assignments = await prisma.appAssignment.findMany({
+    where: {
+      OR: [
+        { scope: 'CUSTOMER', customerId: master.customerId },
+        { scope: 'TERMINAL', terminalMasterId: master.id },
+      ],
+    },
+    include: { app: { select: { id: true, name: true, version: true, packageName: true, iconUrl: true, isPublished: true } } },
+  });
+
+  // TERMINAL overrides CUSTOMER for the same app.
+  const resolved = new Map<string, (typeof assignments)[number]>();
+  for (const a of assignments) if (a.scope === 'CUSTOMER') resolved.set(a.appId, a);
+  for (const a of assignments) if (a.scope === 'TERMINAL') resolved.set(a.appId, a);
+
+  const latestByApp = new Map<string, { installStatus: string; timestamp: Date; version: string }>();
+  if (master.terminal && resolved.size > 0) {
+    const events = await prisma.downloadEvent.findMany({
+      where: { terminalId: master.terminal.id, appId: { in: Array.from(resolved.keys()) } },
+      orderBy: { timestamp: 'desc' },
+    });
+    for (const e of events) if (!latestByApp.has(e.appId)) latestByApp.set(e.appId, e);
+  }
+
+  const apps = Array.from(resolved.values()).map((a) => {
+    const ev = latestByApp.get(a.appId);
+    return {
+      appId: a.app.id,
+      name: a.app.name,
+      packageName: a.app.packageName,
+      version: a.app.version,
+      iconUrl: a.app.iconUrl,
+      published: a.app.isPublished,
+      mode: a.mode,
+      source: a.scope,
+      order: a.order,
+      status: ev ? ev.installStatus : 'NOT_STARTED',
+      statusAt: ev ? ev.timestamp : null,
+    };
+  });
+
+  const defaults = apps.filter((a) => a.mode === 'DEFAULT').sort((x, y) => x.order - y.order);
+  const onRequest = apps.filter((a) => a.mode === 'ON_REQUEST').sort((x, y) => x.name.localeCompare(y.name));
+
+  return res.json({
+    serialNo: master.serialNo,
+    tid: master.tid,
+    customer: master.customer.name,
+    enrolled: !!master.terminal,
+    defaults,
+    onRequest,
+  });
+});
+
 export default router;
 

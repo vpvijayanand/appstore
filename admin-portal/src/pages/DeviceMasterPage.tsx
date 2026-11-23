@@ -2,9 +2,31 @@ import { useEffect, useState } from 'react';
 import { terminalMastersApi, customersApi } from '../api';
 import {
   HardDrive, Plus, Trash2, Loader2, FileSpreadsheet, UploadCloud,
-  CheckCircle, XCircle, Search, Link2, Download, RefreshCw,
+  CheckCircle, XCircle, Search, Link2, Download, RefreshCw, Package,
 } from 'lucide-react';
 import { exportToExcel } from '../utils/exportExcel';
+
+interface AssignedApp {
+  appId: string;
+  name: string;
+  packageName: string;
+  version: string;
+  iconUrl: string | null;
+  mode: 'DEFAULT' | 'ON_REQUEST';
+  source: 'CUSTOMER' | 'TERMINAL';
+  order: number;
+  status: string;
+  statusAt: string | null;
+}
+
+interface AssignedAppsData {
+  serialNo: string;
+  tid: string | null;
+  customer: string;
+  enrolled: boolean;
+  defaults: AssignedApp[];
+  onRequest: AssignedApp[];
+}
 
 interface Customer { id: string; name: string; code: string; }
 
@@ -56,6 +78,29 @@ export default function DeviceMasterPage() {
   const [downloadsFor, setDownloadsFor] = useState<TerminalMaster | null>(null);
   const [downloadsProgress, setDownloadsProgress] = useState<DownloadsProgress | null>(null);
   const [downloadsLoading, setDownloadsLoading] = useState(false);
+  const [appsFor, setAppsFor] = useState<TerminalMaster | null>(null);
+  const [appsData, setAppsData] = useState<AssignedAppsData | null>(null);
+  const [appsLoading, setAppsLoading] = useState(false);
+  const [appsTab, setAppsTab] = useState<'DEFAULT' | 'ON_REQUEST'>('DEFAULT');
+
+  const loadApps = async (m: TerminalMaster) => {
+    setAppsLoading(true);
+    try {
+      const res = await terminalMastersApi.getApps(m.id);
+      setAppsData(res.data);
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to load assigned apps');
+    } finally {
+      setAppsLoading(false);
+    }
+  };
+
+  const openApps = (m: TerminalMaster) => {
+    setAppsFor(m);
+    setAppsData(null);
+    setAppsTab('DEFAULT');
+    loadApps(m);
+  };
 
   const load = () => {
     setLoading(true);
@@ -261,9 +306,16 @@ export default function DeviceMasterPage() {
                       ? <span className="badge badge-info">Enrolled</span>
                       : <span className="badge badge-warning">Not Enrolled</span>}
                   </td>
-                  <td>{m._count.assignments}</td>
+                  <td>
+                    <button className="btn btn-secondary btn-sm" onClick={() => openApps(m)} title="View assigned apps" style={{ fontSize: '11px' }}>
+                      <Package size={12} /> {m._count.assignments}
+                    </button>
+                  </td>
                   <td>
                     <div style={{ display: 'flex', gap: '6px' }}>
+                      <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openApps(m)} title="Assigned apps (Default / On request)">
+                        <Package size={13} />
+                      </button>
                       {m.tid && (
                         <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openMapTid(m)} title="Edit TID mapping">
                           <Link2 size={13} />
@@ -420,6 +472,75 @@ export default function DeviceMasterPage() {
         </div>
       )}
 
+      {/* Assigned Apps Modal */}
+      {appsFor && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setAppsFor(null)}>
+          <div className="modal" style={{ width: '620px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">
+                Assigned Apps — <span style={{ fontFamily: 'var(--font-mono)' }}>{appsFor.serialNo}</span>
+              </h3>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setAppsFor(null)}>✕</button>
+            </div>
+
+            {appsLoading && !appsData ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                <Loader2 size={28} className="spinner" color="var(--text-muted)" />
+              </div>
+            ) : appsData && (() => {
+              const list = appsTab === 'DEFAULT' ? appsData.defaults : appsData.onRequest;
+              return (
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {appsData.customer}{appsData.tid ? ` · TID ${appsData.tid}` : ''} · {appsData.enrolled ? 'Enrolled' : 'Not enrolled yet'}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className={`btn btn-sm ${appsTab === 'DEFAULT' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setAppsTab('DEFAULT')}>
+                      Default — auto-install ({appsData.defaults.length})
+                    </button>
+                    <button className={`btn btn-sm ${appsTab === 'ON_REQUEST' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setAppsTab('ON_REQUEST')}>
+                      On request ({appsData.onRequest.length})
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gap: '6px', maxHeight: '340px', overflowY: 'auto' }}>
+                    {list.map(a => (
+                      <div key={a.appId} style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px',
+                        borderRadius: 'var(--radius-sm)', background: 'var(--bg-surface-2)', border: '1px solid var(--border-subtle)',
+                      }}>
+                        {appsTab === 'DEFAULT' && (
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)', width: '24px' }}>#{a.order}</span>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600 }}>{a.name} <span style={{ fontWeight: 400, fontSize: '11px', color: 'var(--text-muted)' }}>v{a.version}</span></div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{a.packageName}</div>
+                        </div>
+                        <span className={`badge ${a.source === 'TERMINAL' ? 'badge-warning' : 'badge-default'}`} title={a.source === 'TERMINAL' ? 'Assigned directly to this device (overrides customer)' : 'Inherited from customer'}>
+                          {a.source === 'TERMINAL' ? 'Device' : 'Customer'}
+                        </span>
+                        <StatusBadge status={a.status} />
+                      </div>
+                    ))}
+                    {list.length === 0 && (
+                      <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                        {appsTab === 'DEFAULT' ? 'No default (auto-install) apps are assigned.' : 'No on-request apps are assigned.'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '18px' }}>
+              <button className="btn btn-secondary" onClick={() => loadApps(appsFor)} disabled={appsLoading}>
+                <RefreshCw size={14} className={appsLoading ? 'spinner' : ''} /> Refresh
+              </button>
+              <button className="btn btn-primary" onClick={() => setAppsFor(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Downloads Progress Modal */}
       {downloadsFor && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setDownloadsFor(null)}>
@@ -489,9 +610,9 @@ export default function DeviceMasterPage() {
 function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case 'SUCCESS': return <span className="badge badge-success"><CheckCircle size={11} /> Installed</span>;
-    case 'FAILED': return <span className="badge badge-error"><XCircle size={11} /> Failed</span>;
+    case 'FAILED': return <span className="badge badge-error" title="The install failed or the device never confirmed it"><XCircle size={11} /> Failed</span>;
     case 'DOWNLOADING': return <span className="badge badge-warning">Downloading…</span>;
-    case 'PENDING': return <span className="badge badge-info">Queued</span>;
+    case 'PENDING': return <span className="badge badge-info" title="Waiting for the device to start; becomes Failed if no confirmation arrives">Waiting for device</span>;
     default: return <span className="badge badge-default">Not started</span>;
   }
 }

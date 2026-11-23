@@ -137,8 +137,22 @@ export async function getAdvertisementDeliveryStatus(advertisementId: string) {
   const groupIds = ad.assignments.filter((a) => a.scope === 'GROUP' && a.groupId).map((a) => a.groupId!);
 
   const groupMembers = groupIds.length
-    ? await prisma.terminalGroup.findMany({ where: { id: { in: groupIds } }, select: { members: { select: { id: true } } } })
+    ? await prisma.terminalGroup.findMany({ where: { id: { in: groupIds } }, select: { name: true, members: { select: { id: true } } } })
     : [];
+  const customerNames = customerIds.length
+    ? new Map((await prisma.customer.findMany({ where: { id: { in: customerIds } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]))
+    : new Map<string, string>();
+  const directMasterSet = new Set(masterIds);
+  const groupNamesByMaster = new Map<string, string[]>();
+  for (const g of groupMembers) for (const m of g.members) groupNamesByMaster.set(m.id, [...(groupNamesByMaster.get(m.id) ?? []), g.name]);
+  /** Human-readable reasons this terminal receives the ad (it can match several). */
+  const sourcesFor = (customerId: string | null, masterId: string | null): string[] => {
+    const out: string[] = [];
+    if (customerId && customerNames.has(customerId)) out.push(`Customer: ${customerNames.get(customerId)}`);
+    if (masterId && directMasterSet.has(masterId)) out.push('Device (direct)');
+    if (masterId) for (const n of groupNamesByMaster.get(masterId) ?? []) out.push(`Group: ${n}`);
+    return out;
+  };
   const allMasterIds = Array.from(new Set([...masterIds, ...groupMembers.flatMap((g) => g.members.map((m) => m.id))]));
 
   const terminals = await prisma.terminal.findMany({
@@ -149,7 +163,7 @@ export async function getAdvertisementDeliveryStatus(advertisementId: string) {
         ...(allMasterIds.length ? [{ terminalMasterId: { in: allMasterIds } }] : []),
       ],
     },
-    include: { customer: { select: { name: true } } },
+    include: { customer: { select: { name: true } }, terminalMaster: { select: { tid: true } } },
   });
 
   // Terminal masters assigned directly/by group that haven't enrolled a device yet.
@@ -157,7 +171,7 @@ export async function getAdvertisementDeliveryStatus(advertisementId: string) {
   const notEnrolledMasters = allMasterIds.length
     ? await prisma.terminalMaster.findMany({
         where: { id: { in: allMasterIds.filter((id) => !enrolledMasterIds.has(id)) } },
-        select: { id: true, serialNo: true, tid: true },
+        select: { id: true, serialNo: true, tid: true, customer: { select: { name: true } } },
       })
     : [];
 
@@ -181,6 +195,9 @@ export async function getAdvertisementDeliveryStatus(advertisementId: string) {
       terminalDbId: t.id,
       terminalId: t.terminalId,
       serialNo: t.serialNo,
+      tid: t.terminalMaster?.tid ?? null,
+      site: t.site,
+      sources: sourcesFor(t.customerId, t.terminalMasterId),
       customer: t.customer.name,
       online: !!t.lastSeenAt && now.getTime() - t.lastSeenAt.getTime() < ONLINE_WINDOW_MS,
       lastSeenAt: iso(t.lastSeenAt),
@@ -194,7 +211,8 @@ export async function getAdvertisementDeliveryStatus(advertisementId: string) {
 
   for (const m of notEnrolledMasters) {
     rows.push({
-      terminalDbId: '', terminalId: m.tid ?? '—', serialNo: m.serialNo, customer: '', online: false, lastSeenAt: null,
+      terminalDbId: '', terminalId: m.tid ?? '—', serialNo: m.serialNo, tid: m.tid, site: null, sources: sourcesFor(null, m.id),
+      customer: m.customer.name, online: false, lastSeenAt: null,
       state: 'NOT_ENROLLED', label: 'Device not enrolled', detail: 'Assigned to this serial number, but no physical terminal has enrolled yet. It will be delivered after enrollment.',
       eta: null, steps: [
         { key: 'ASSIGNED', label: 'Assigned', state: 'done', at: null },

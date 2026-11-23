@@ -143,6 +143,7 @@ export const terminalMastersApi = {
     api.patch(`/terminal-masters/${id}`, data),
   delete: (id: string) => api.delete(`/terminal-masters/${id}`),
   getDownloads: (id: string) => api.get(`/terminal-masters/${id}/downloads`),
+  getApps: (id: string) => api.get(`/terminal-masters/${id}/apps`),
 };
 
 // ── Terminal Groups (named set of Serial No/TID devices, for ad targeting) ───

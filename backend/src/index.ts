@@ -29,6 +29,8 @@ import remoteAccessDeviceRouter from './routes/remote-access-device';
 import { initMinIO } from './services/minio';
 import { attachSignalingServer } from './services/signaling';
 import { checkRemoteAccessSchema } from './services/remote-access-requests';
+import { expireStaleDownloadEvents } from './services/download-status';
+import { PrismaClient } from '@prisma/client';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -144,6 +146,13 @@ checkRemoteAccessSchema().catch((err) => {
     err?.message || err
   );
 });
+
+// Resolve stuck PENDING/DOWNLOADING download events to FAILED on a timer so the
+// admin views never show an unfinished status long after the device gave up.
+const sweeperPrisma = new PrismaClient();
+setInterval(() => {
+  expireStaleDownloadEvents(sweeperPrisma).catch((err) => console.error('[DownloadSweeper]', err?.message || err));
+}, 60_000).unref();
 
 initMinIO()
   .catch((err) => {
