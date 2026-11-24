@@ -7,6 +7,9 @@ import './Terminal360Page.css';
 
 type Tone = 'ok' | 'bad' | 'mid' | 'info';
 type BoxKey = 'default' | 'demand' | 'ads' | 'downloads';
+type PopKey = BoxKey | 'terminal';
+
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 interface Terminal360Data {
   terminal: { id: string; terminalId: string; serialNo: string; customer: string; location: string; online: boolean; active: boolean };
@@ -63,12 +66,61 @@ const Tag = ({ tone, children }: { tone: Tone; children: ReactNode }) => <span c
 
 const MAX_ROWS = 6;
 
+// Teal Android POS terminal: printer slot, camera, touchscreen (with live fields), keypad, card slot.
+function PosSvg({ fields }: { fields: (readonly [string, string])[] }) {
+  const keys: { x: number; y: number; fill: string }[] = [];
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 3; c++) {
+      let fill = 'url(#pk)';
+      if (r === 3) fill = c === 0 ? 'url(#pr)' : c === 1 ? 'url(#py)' : 'url(#pg)';
+      keys.push({ x: 28 + c * 54, y: 214 + r * 28, fill });
+    }
+  }
+  return (
+    <svg viewBox="0 0 200 360" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="pb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#5eead4" /><stop offset="0.45" stopColor="#14b8a6" /><stop offset="1" stopColor="#0b5e57" /></linearGradient>
+        <linearGradient id="ps" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0a3b44" /><stop offset="1" stopColor="#04141d" /></linearGradient>
+        <linearGradient id="pk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f0fdfa" /><stop offset="1" stopColor="#99d9d0" /></linearGradient>
+        <linearGradient id="pr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ff7b7b" /><stop offset="1" stopColor="#c62828" /></linearGradient>
+        <linearGradient id="py" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffe27a" /><stop offset="1" stopColor="#d49b00" /></linearGradient>
+        <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#6ee7a0" /><stop offset="1" stopColor="#15803d" /></linearGradient>
+        <linearGradient id="pscan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#22e6ff" stopOpacity="0" /><stop offset="1" stopColor="#22e6ff" stopOpacity="0.5" /></linearGradient>
+        <clipPath id="pclip"><rect x="30" y="40" width="140" height="152" rx="8" /></clipPath>
+      </defs>
+      <rect x="8" y="4" width="184" height="352" rx="30" fill="url(#pb)" stroke="#a7f3e8" strokeOpacity="0.7" strokeWidth="1.5" />
+      <rect x="14" y="10" width="172" height="340" rx="25" fill="none" stroke="#042f2b" strokeOpacity="0.35" />
+      <rect x="48" y="14" width="104" height="7" rx="3.5" fill="#052e2b" />
+      <circle cx="100" cy="30" r="2.6" fill="#052e2b" /><circle cx="100" cy="30" r="1" fill="#22e6ff" />
+      <rect x="22" y="36" width="156" height="160" rx="13" fill="#031a1c" stroke="#0f766e" />
+      <rect x="30" y="40" width="140" height="152" rx="8" fill="url(#ps)" />
+      <g clipPath="url(#pclip)">
+        <rect className="t360-scan" x="30" y="40" width="140" height="24" fill="url(#pscan)" />
+        <text x="38" y="53" fontSize="8" fontWeight="700" fill="#22e6ff" letterSpacing="1.5" fontFamily="Segoe UI, Arial, sans-serif">WL BIZSTORE</text>
+        <circle cx="160" cy="49" r="3" fill="#4ade80" />
+        {fields.map(([k, v], i) => (
+          <g key={k}>
+            <text x="38" y={74 + i * 29} fontSize="6.6" fontWeight="700" fill="#ffc83d" letterSpacing="1.2" fontFamily="Segoe UI, Arial, sans-serif">{k}</text>
+            <text x="38" y={87 + i * 29} fontSize="11.5" fontWeight="700" fill="#e6fbff" fontFamily="Consolas, ui-monospace, monospace">{clip(v, 17)}</text>
+          </g>
+        ))}
+      </g>
+      <path d="M34 44 L90 44 L34 120 Z" fill="#fff" opacity="0.05" />
+      {keys.map((k, i) => (
+        <rect key={i} x={k.x} y={k.y} width="40" height="22" rx="6" fill={k.fill} stroke="#04403a" strokeOpacity="0.5" />
+      ))}
+      <rect x="40" y="334" width="120" height="5" rx="2.5" fill="#052e2b" />
+      <text x="100" y="349" textAnchor="middle" fontSize="7" fontWeight="700" fill="#042f2b" letterSpacing="2" fontFamily="Segoe UI, Arial, sans-serif">WORLDLINE</text>
+    </svg>
+  );
+}
+
 export default function Terminal360Page() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [data, setData] = useState<Terminal360Data | null>(null);
   const [isSample, setIsSample] = useState(false);
-  const [active, setActive] = useState<{ key: BoxKey; style: CSSProperties } | null>(null);
+  const [active, setActive] = useState<{ key: PopKey; style: CSSProperties } | null>(null);
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null);
   const [confirmReboot, setConfirmReboot] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -128,10 +180,11 @@ export default function Terminal360Page() {
     ];
   }, [data]);
 
-  const openPopup = (key: BoxKey, el: HTMLElement) => {
+  const openPopup = (key: PopKey, el: HTMLElement) => {
     const r = el.getBoundingClientRect();
-    const left = Math.min(Math.max(r.left + r.width / 2 - 160, 10), Math.max(10, window.innerWidth - 330));
-    const below = r.bottom + 280 < window.innerHeight;
+    const w = key === 'terminal' ? 420 : 320;
+    const left = Math.min(Math.max(r.left + r.width / 2 - w / 2, 10), Math.max(10, window.innerWidth - w - 10));
+    const below = r.bottom + (key === 'terminal' ? 330 : 280) < window.innerHeight;
     setActive({ key, style: below ? { left, top: r.bottom + 12 } : { left, bottom: window.innerHeight - r.top + 12 } });
   };
 
@@ -185,17 +238,30 @@ export default function Terminal360Page() {
           ))}
         </div>
 
-        <div className="t360-term" aria-label="Terminal">
-          <div className="t360-screen">
-            <div><b>TERMINAL ID</b><span>{t.terminalId}</span></div>
-            <div><b>S.NO</b><span>{t.serialNo}</span></div>
-            <div><b>CUSTOMER</b><span>{t.customer}</span></div>
-            <div><b>LOCATION</b><span>{t.location}</span></div>
-          </div>
-          <div className="t360-keys">{Array.from({ length: 12 }, (_, i) => <i key={i} />)}</div>
-          <div className="t360-slotline" />
+        <div
+          className={`t360-term${active?.key === 'terminal' ? ' on' : ''}`}
+          tabIndex={0}
+          role="button"
+          aria-label={`Terminal ${t.terminalId}, serial ${t.serialNo}, ${t.customer}, ${t.location}`}
+          aria-describedby={active?.key === 'terminal' ? 't360-pop' : undefined}
+          onMouseEnter={(e) => openPopup('terminal', e.currentTarget)}
+          onMouseLeave={() => setActive(null)}
+          onFocus={(e) => openPopup('terminal', e.currentTarget)}
+          onBlur={() => setActive(null)}
+          onClick={(e) => (active?.key === 'terminal' ? setActive(null) : openPopup('terminal', e.currentTarget))}
+        >
+          <PosSvg fields={[['TERMINAL ID', t.terminalId], ['S.NO', t.serialNo], ['CUSTOMER', t.customer], ['LOCATION', t.location]]} />
         </div>
       </div>
+
+      {active?.key === 'terminal' && (
+        <div id="t360-pop" role="tooltip" className="t360-pop big" style={active.style}>
+          <h4>TERMINAL DETAILS</h4>
+          {([['TERMINAL ID', t.terminalId], ['S.NO', t.serialNo], ['CUSTOMER NAME', t.customer], ['LOCATION', t.location]] as const).map(([k, v]) => (
+            <div className="row" key={k}><span className="k">{k}</span><span className="v">{v}</span></div>
+          ))}
+        </div>
+      )}
 
       {active && activeBox && (
         <div id="t360-pop" role="tooltip" className="t360-pop" style={active.style}>
