@@ -4,7 +4,7 @@ import { advertisementsApi, advertisementAssignmentsApi, customersApi, terminalM
 import {
   Megaphone, Plus, Trash2, Loader2, CheckCircle, XCircle, Image as ImageIcon,
   Video, FileCode, Users, HardDrive, Share2, Clock, Settings as SettingsIcon, Boxes,
-  Eye, RefreshCw,
+  Eye, RefreshCw, Smartphone,
 } from 'lucide-react';
 
 interface Advertisement {
@@ -18,6 +18,7 @@ interface Advertisement {
   endAt: string;
   isActive: boolean;
   previewUrl: string | null;
+  htmlContent?: string | null;
   assignmentCount: number;
 }
 
@@ -86,6 +87,10 @@ export default function AdvertisementsPage() {
   // regardless of which ad is shown — configurable instead of hardcoded).
   const [popupIntervalHours, setPopupIntervalHours] = useState<number | ''>('');
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Terminal preview modal
+  const [previewAd, setPreviewAd] = useState<Advertisement | null>(null);
+  const [previewRun, setPreviewRun] = useState(0);
 
   // Delivery status modal
   const [deliveryModalAd, setDeliveryModalAd] = useState<Advertisement | null>(null);
@@ -345,6 +350,15 @@ export default function AdvertisementsPage() {
                           <Eye size={12} />
                           Delivery
                         </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => { setPreviewRun(r => r + 1); setPreviewAd(ad); }}
+                          title="Preview how it looks on the terminal"
+                          style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Smartphone size={12} />
+                          Preview
+                        </button>
                         <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openAssignModal(ad)} title="Assign">
                           <Share2 size={13} />
                         </button>
@@ -366,6 +380,66 @@ export default function AdvertisementsPage() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Terminal preview modal */}
+      {previewAd && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setPreviewAd(null)}>
+          <div className="modal" style={{ width: '420px', textAlign: 'center' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">Terminal Preview</h3>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setPreviewAd(null)}>✕</button>
+            </div>
+            <style>{`@keyframes adprev-bar { from { width: 100%; } to { width: 0%; } }`}</style>
+            <div style={{
+              width: '288px', height: '512px', margin: '0 auto', background: '#000', borderRadius: '22px',
+              border: '8px solid #1f2937', boxShadow: '0 8px 30px rgba(0,0,0,.35)', position: 'relative', overflow: 'hidden',
+            }}>
+              {previewAd.type === 'IMAGE' && previewAd.previewUrl && (
+                <img key={previewRun} src={previewAd.previewUrl} alt={previewAd.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              )}
+              {previewAd.type === 'VIDEO' && previewAd.previewUrl && (
+                <video key={previewRun} src={previewAd.previewUrl} autoPlay muted playsInline controls={false}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              )}
+              {previewAd.type === 'HTML' && (
+                <iframe key={previewRun} title="ad-html" sandbox="allow-scripts" srcDoc={previewAd.htmlContent || ''}
+                  style={{ width: '100%', height: '100%', border: 0, background: '#fff' }} />
+              )}
+              {previewAd.type !== 'HTML' && !previewAd.previewUrl && (
+                <div style={{ color: '#9ca3af', padding: '40px 16px', fontSize: '13px' }}>No media available</div>
+              )}
+              <div style={{
+                position: 'absolute', top: 0, left: 0, right: 0, padding: '8px 40px 8px 10px', textAlign: 'left',
+                background: 'linear-gradient(rgba(0,0,0,.65), transparent)', color: '#fff', fontSize: '12px', fontWeight: 600,
+              }}>
+                {previewAd.title}
+              </div>
+              <div style={{
+                position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%',
+                background: 'rgba(0,0,0,.55)', color: '#fff', fontSize: '12px', lineHeight: '24px',
+              }}>✕</div>
+              {previewAd.type !== 'VIDEO' && (
+                <div key={`bar-${previewRun}`} style={{
+                  position: 'absolute', bottom: 0, left: 0, height: '4px', background: '#01875F',
+                  animation: `adprev-bar ${Math.max(previewAd.durationSeconds, 3)}s linear forwards`,
+                }} />
+              )}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '12px 0' }}>
+              {previewAd.displayMode === 'SCREENSAVER'
+                ? 'Screensaver: full screen on idle, any touch dismisses it.'
+                : 'Popup: full screen on launch/resume, close button dismisses it.'}
+              {previewAd.type === 'VIDEO'
+                ? ' Closes when the video ends.'
+                : ` Auto-closes after ${Math.max(previewAd.durationSeconds, 3)}s.`}
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPreviewRun(r => r + 1)}>
+              <RefreshCw size={13} /> Replay
+            </button>
+          </div>
         </div>
       )}
 
