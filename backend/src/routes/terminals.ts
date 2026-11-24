@@ -267,4 +267,48 @@ router.get('/:id/activity', requireAdmin, async (req: Request, res: Response) =>
   }
 });
 
+// ── Advertisements assigned to one terminal (direct, via group, or via customer) ──
+router.get('/:id/advertisement-assignments', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const terminal = await prisma.terminal.findUnique({
+      where: { id: req.params.id },
+      include: { customer: { select: { name: true } } },
+    });
+    if (!terminal) return res.status(404).json({ error: 'Terminal not found' });
+
+    const groups = terminal.terminalMasterId
+      ? await prisma.terminalGroup.findMany({ where: { members: { some: { id: terminal.terminalMasterId } } }, select: { id: true } })
+      : [];
+    const assignments = await prisma.advertisementAssignment.findMany({
+      where: {
+        OR: [
+          { scope: 'CUSTOMER', customerId: terminal.customerId },
+          ...(terminal.terminalMasterId ? [{ scope: 'TERMINAL' as const, terminalMasterId: terminal.terminalMasterId }] : []),
+          ...(groups.length ? [{ scope: 'GROUP' as const, groupId: { in: groups.map((g) => g.id) } }] : []),
+        ],
+      },
+      include: {
+        advertisement: { select: { id: true, title: true, type: true, displayMode: true, startAt: true, endAt: true, isActive: true } },
+        customer: { select: { name: true } },
+        group: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return res.json({
+      terminal: { id: terminal.id, terminalId: terminal.terminalId, serialNo: terminal.serialNo, customer: terminal.customer.name },
+      assignments: assignments.map((a) => ({
+        id: a.id,
+        scope: a.scope,
+        sourceName: a.scope === 'CUSTOMER' ? a.customer?.name ?? null : a.scope === 'GROUP' ? a.group?.name ?? null : null,
+        createdAt: a.createdAt,
+        advertisement: a.advertisement,
+      })),
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Failed to load advertisements' });
+  }
+});
+
 export default router;

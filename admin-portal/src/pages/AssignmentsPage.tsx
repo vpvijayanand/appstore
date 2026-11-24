@@ -29,6 +29,23 @@ export default function AssignmentsPage() {
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
 
+  // List search / filters
+  const [listSearch, setListSearch] = useState('');
+  const [listScope, setListScope] = useState<'' | Scope>('');
+  const [listMode, setListMode] = useState<'' | 'DEFAULT' | 'ON_REQUEST'>('');
+  const lq = listSearch.trim().toLowerCase();
+  const visibleAssignments = assignments.filter((a) => {
+    if (listScope && a.scope !== listScope) return false;
+    if (listMode && a.mode !== listMode) return false;
+    if (!lq) return true;
+    return (
+      (a.terminalMaster?.serialNo || '').toLowerCase().includes(lq) ||
+      (a.terminalMaster?.tid || '').toLowerCase().includes(lq) ||
+      a.app.name.toLowerCase().includes(lq) ||
+      (a.customer?.name || '').toLowerCase().includes(lq)
+    );
+  });
+
   // Wizard state
   const [step, setStep] = useState(1);
   const [scope, setScope] = useState<Scope>('CUSTOMER');
@@ -163,9 +180,26 @@ export default function AssignmentsPage() {
           <h2 className="page-title">App Assignments</h2>
           <p className="page-subtitle">Assign apps to customers or specific devices — mark as Default (auto-installs) or On Request</p>
         </div>
-        <button className="btn btn-primary" onClick={openWizard}>
-          <Plus size={16} /> Bulk Assign Apps
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <input
+            className="form-input" type="search" style={{ width: '220px' }}
+            placeholder="Search S.No, TID, app, customer"
+            value={listSearch} onChange={e => setListSearch(e.target.value)}
+          />
+          <select className="form-select" style={{ width: '140px' }} value={listScope} onChange={e => setListScope(e.target.value as '' | Scope)}>
+            <option value="">All Scopes</option>
+            <option value="CUSTOMER">Customer</option>
+            <option value="TERMINAL">Terminal</option>
+          </select>
+          <select className="form-select" style={{ width: '140px' }} value={listMode} onChange={e => setListMode(e.target.value as '' | 'DEFAULT' | 'ON_REQUEST')}>
+            <option value="">All Modes</option>
+            <option value="DEFAULT">Default</option>
+            <option value="ON_REQUEST">On Request</option>
+          </select>
+          <button className="btn btn-primary" onClick={openWizard}>
+            <Plus size={16} /> Bulk Assign Apps
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -187,7 +221,7 @@ export default function AssignmentsPage() {
               </tr>
             </thead>
             <tbody>
-              {assignments.map(a => (
+              {visibleAssignments.map(a => (
                 <tr key={a.id}>
                   <td style={{ fontWeight: 600 }}>{a.app.name}</td>
                   <td>
@@ -227,11 +261,11 @@ export default function AssignmentsPage() {
                   </td>
                 </tr>
               ))}
-              {assignments.length === 0 && (
+              {visibleAssignments.length === 0 && (
                 <tr>
                   <td colSpan={7} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
                     <Share2 size={40} style={{ marginBottom: '12px', opacity: 0.3 }} />
-                    <div>No assignments yet. Click "Bulk Assign Apps" to get started.</div>
+                    <div>{assignments.length === 0 ? 'No assignments yet. Click "Bulk Assign Apps" to get started.' : 'No assignments match the current search/filters.'}</div>
                   </td>
                 </tr>
               )}

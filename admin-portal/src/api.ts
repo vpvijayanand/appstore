@@ -107,6 +107,8 @@ export const terminalsApi = {
     api.get(`/terminals/${terminalId}/commands/${commandId}`),
   getActivity: (terminalId: string) =>
     api.get(`/terminals/${terminalId}/activity`),
+  getAdvertisementAssignments: (terminalId: string) =>
+    api.get(`/terminals/${terminalId}/advertisement-assignments`),
 };
 
 // ── Remote Screen Share (view/control a terminal's screen) ───────────────────

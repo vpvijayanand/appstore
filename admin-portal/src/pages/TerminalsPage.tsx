@@ -80,6 +80,11 @@ export default function TerminalsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [customerFilter, setCustomerFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const q = search.trim().toLowerCase();
+  const visibleTerminals = q
+    ? terminals.filter((t) => t.terminalId.toLowerCase().includes(q) || (t.serialNo || '').toLowerCase().includes(q))
+    : terminals;
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
 
   // Active operations banner
@@ -288,9 +293,19 @@ export default function TerminalsPage() {
       <div className="page-header">
         <div>
           <h2 className="page-title">Terminals</h2>
-          <p className="page-subtitle">{terminals.length} enrolled devices</p>
+          <p className="page-subtitle">
+            {search.trim() ? `${visibleTerminals.length} of ${terminals.length}` : terminals.length} enrolled devices
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <input
+            className="form-input"
+            style={{ width: '220px' }}
+            type="search"
+            placeholder="Search S.No or TID"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
           <select
             className="form-select"
             style={{ width: '200px' }}
@@ -388,7 +403,7 @@ export default function TerminalsPage() {
               </tr>
             </thead>
             <tbody>
-              {terminals.map((t) => {
+              {visibleTerminals.map((t) => {
                 const cfg = STATUS_CONFIG[t.status] || STATUS_CONFIG.ACTIVE;
                 const isOnline = t.lastSeenAt && Date.now() - new Date(t.lastSeenAt).getTime() < 60000;
                 return (
@@ -458,16 +473,6 @@ export default function TerminalsPage() {
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         <button
                           className="btn btn-secondary btn-sm"
-                          onClick={() => navigate('/remote-access-requests')}
-                          disabled={t.status !== 'ACTIVE'}
-                          title="Open approved device requests queue for remote support"
-                          style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <Monitor size={12} />
-                          Remote Queue
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
                           onClick={() => handleForceRestart(t)}
                           disabled={t.status !== 'ACTIVE'}
                           title="Restart the WL BizStore app with live progress tracking"
@@ -488,11 +493,29 @@ export default function TerminalsPage() {
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
+                          onClick={() => navigate(`/terminals/${t.id}/advertisements`)}
+                          title="View and manage advertisements assigned to this terminal"
+                          style={{ fontSize: '11px', fontWeight: 700, color: '#d97706' }}
+                        >
+                          ADV
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
                           onClick={() => navigate(`/terminals/${t.id}/360`)}
                           title="Open the Terminal 360 view"
                           style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed' }}
                         >
                           360°
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => navigate('/remote-access-requests')}
+                          disabled={t.status !== 'ACTIVE'}
+                          title="Open approved device requests queue for remote support"
+                          style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Monitor size={12} />
+                          Remote Queue
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
