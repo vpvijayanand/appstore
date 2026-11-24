@@ -202,7 +202,7 @@ router.get('/:id/activity', requireAdmin, async (req: Request, res: Response) =>
         },
         include: { app: { select: { id: true, name: true, version: true, isPublished: true } } },
       }),
-      prisma.downloadEvent.findMany({ where: { terminalId: terminal.id }, orderBy: { timestamp: 'desc' }, take: 200 }),
+      prisma.downloadEvent.findMany({ where: { terminalId: terminal.id }, orderBy: { timestamp: 'desc' }, take: 200, include: { app: { select: { name: true } } } }),
       getTerminalAdvertisementStates(terminal),
     ]);
 
@@ -249,8 +249,14 @@ router.get('/:id/activity', requireAdmin, async (req: Request, res: Response) =>
     return res.json({
       terminal: {
         id: terminal.id, terminalId: terminal.terminalId, serialNo: terminal.serialNo, customer: terminal.customer.name,
+        model: terminal.model, site: terminal.site, status: terminal.status,
         lastSeenAt: terminal.lastSeenAt, online: isOnline(terminal.lastSeenAt),
       },
+      downloads: events.slice(0, 25).map((e) => ({
+        id: e.id, name: e.app.name, version: e.version, at: e.timestamp,
+        status: e.installStatus === 'SUCCESS' ? 'SUCCESS'
+          : e.installStatus === 'FAILED' || Date.now() - e.timestamp.getTime() > 15 * 60_000 ? 'FAILED' : 'IN_PROGRESS',
+      })),
       commands: commands.map((c) => buildCommandView(c, terminal.lastSeenAt)),
       apps,
       advertisements: ads,

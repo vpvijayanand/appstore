@@ -1,0 +1,214 @@
+/* Terminal 360 View — scoped under .t360 so it never leaks into the rest of the portal */
+.t360 {
+  --c-cyan: #22e6ff;
+  --c-violet: #a855f7;
+  --c-gold: #ffc83d;
+  --c-bg: #05060f;
+  --c-card: rgba(14, 18, 40, 0.78);
+  --size: min(86vw, 580px);
+  --r: calc(var(--size) / 2);
+  --box-w: clamp(108px, calc(var(--size) * 0.27), 156px);
+  --spin: 46s;
+
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100vh - 80px);
+  padding: 22px 16px 40px;
+  border-radius: 18px;
+  overflow: hidden;
+  color: #e8ecff;
+  background:
+    radial-gradient(900px 500px at 15% 0%, rgba(168, 85, 247, 0.22), transparent 60%),
+    radial-gradient(800px 500px at 90% 100%, rgba(34, 230, 255, 0.16), transparent 60%),
+    var(--c-bg);
+}
+.t360::before { /* faint grid */
+  content: '';
+  position: absolute; inset: 0; z-index: -1;
+  background-image:
+    linear-gradient(rgba(120, 140, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 140, 255, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at 50% 45%, #000, transparent 75%);
+  -webkit-mask-image: radial-gradient(circle at 50% 45%, #000, transparent 75%);
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.t360-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.t360-title { margin: 0; font-size: clamp(20px, 3vw, 28px); font-weight: 800; letter-spacing: 0.04em;
+  background: linear-gradient(90deg, var(--c-cyan), var(--c-violet) 60%, var(--c-gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.t360-sub { margin: 2px 0 0; font-size: 12.5px; color: #8e98c9; }
+.t360-back, .t360-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 12.5px;
+  color: #cdd6ff; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); text-decoration: none; cursor: pointer;
+}
+.t360-back:hover { border-color: var(--c-cyan); box-shadow: 0 0 14px rgba(34, 230, 255, 0.35); }
+.t360-chip.online { color: #6bffb0; border-color: rgba(107, 255, 176, 0.45); }
+.t360-chip.sample { color: var(--c-gold); border-color: rgba(255, 200, 61, 0.45); }
+.t360-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+
+/* ── Stage ──────────────────────────────────────────────── */
+.t360-stage { position: relative; width: var(--size); height: var(--size); margin: 34px auto 18px; }
+
+.t360-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 1.5px solid rgba(34, 230, 255, 0.5);
+  box-shadow: 0 0 22px rgba(34, 230, 255, 0.35), inset 0 0 38px rgba(168, 85, 247, 0.25);
+}
+.t360-ring::after { /* inner dashed ring */
+  content: ''; position: absolute; inset: 9%; border-radius: 50%; border: 1px dashed rgba(168, 85, 247, 0.35);
+}
+.t360-arc { /* spinning energy arc */
+  position: absolute; inset: -2px; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 72%, rgba(168, 85, 247, 0.9) 88%, var(--c-cyan) 98%, transparent 100%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px));
+  filter: drop-shadow(0 0 8px var(--c-cyan));
+  animation: t360-spin 7s linear infinite;
+}
+
+.t360-glow { /* pulsing glow behind terminal */
+  position: absolute; left: 50%; top: 50%; width: 52%; height: 52%; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle, rgba(34, 230, 255, 0.55), rgba(168, 85, 247, 0.35) 45%, transparent 70%);
+  filter: blur(18px); animation: t360-pulse 3.4s ease-in-out infinite;
+}
+
+/* Spinning layer carries spokes and boxes so lines stay attached */
+.t360-orbit { position: absolute; inset: 0; animation: t360-spin var(--spin) linear infinite; }
+.t360-counter { animation: t360-spin-rev var(--spin) linear infinite; }
+.t360.paused .t360-orbit, .t360.paused .t360-counter { animation-play-state: paused; }
+
+.t360-spoke {
+  position: absolute; left: 50%; top: 50%; width: var(--r); height: 3px; margin-top: -1.5px;
+  transform-origin: 0 50%; transform: rotate(calc(var(--a) - 90deg)); z-index: 1; pointer-events: none;
+}
+.t360-spoke::before { content: ''; position: absolute; inset: 1px 0; background: linear-gradient(90deg, rgba(34, 230, 255, 0.05), rgba(34, 230, 255, 0.5)); transition: background 0.3s; }
+.t360-spoke::after { /* flowing pulse */
+  content: ''; position: absolute; inset: 0; border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #fff 45%, var(--c-cyan) 55%, transparent);
+  background-size: 28% 100%; background-repeat: no-repeat; filter: drop-shadow(0 0 5px var(--c-cyan));
+  animation: t360-flow 1.7s linear infinite; animation-delay: var(--d, 0s);
+}
+.t360[data-active='default'] .t360-spoke.default::before, .t360[data-active='demand'] .t360-spoke.demand::before,
+.t360[data-active='ads'] .t360-spoke.ads::before, .t360[data-active='downloads'] .t360-spoke.downloads::before {
+  background: linear-gradient(90deg, rgba(255, 200, 61, 0.15), var(--c-gold));
+}
+.t360[data-active='default'] .t360-spoke.default::after, .t360[data-active='demand'] .t360-spoke.demand::after,
+.t360[data-active='ads'] .t360-spoke.ads::after, .t360[data-active='downloads'] .t360-spoke.downloads::after {
+  background-image: linear-gradient(90deg, transparent, #fff 45%, var(--c-gold) 55%, transparent);
+  filter: drop-shadow(0 0 6px var(--c-gold));
+}
+
+.t360-slot {
+  position: absolute; left: 50%; top: 50%; z-index: 3;
+  transform: translate(-50%, -50%) rotate(var(--a)) translateY(calc(var(--r) * -1)) rotate(calc(var(--a) * -1));
+}
+.t360-box {
+  display: block; width: var(--box-w); padding: 10px 12px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: var(--c-card); backdrop-filter: blur(8px); border-radius: 14px;
+  border: 1px solid rgba(34, 230, 255, 0.55);
+  box-shadow: 0 0 16px rgba(34, 230, 255, 0.35), inset 0 0 14px rgba(168, 85, 247, 0.18);
+  transition: transform 0.25s ease, border-color 0.25s, box-shadow 0.25s;
+}
+.t360-box:hover, .t360-box:focus-visible, .t360-box.on {
+  transform: scale(1.14); border-color: var(--c-gold); outline: none;
+  box-shadow: 0 0 22px rgba(255, 200, 61, 0.55), inset 0 0 16px rgba(255, 200, 61, 0.15);
+}
+.t360-box:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.t360-box-label { display: flex; align-items: center; gap: 6px; font-size: clamp(10.5px, 1.9vw, 12.5px); font-weight: 700; letter-spacing: 0.03em; color: var(--c-cyan); }
+.t360-box-count { margin-top: 3px; font-size: clamp(17px, 3.4vw, 24px); font-weight: 800; line-height: 1.1; color: #fff; }
+.t360-box-hint { font-size: 10.5px; color: #8e98c9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t360-box.on .t360-box-label, .t360-box:hover .t360-box-label { color: var(--c-gold); }
+
+/* ── Terminal illustration ──────────────────────────────── */
+.t360-term {
+  position: absolute; left: 50%; top: 50%; z-index: 2; transform: translate(-50%, -50%);
+  width: calc(var(--size) * 0.3); aspect-ratio: 0.56; padding: 7% 7% 9%; border-radius: 16px;
+  background: linear-gradient(160deg, #2b3158, #10132a 60%, #1a1f3f);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6), 0 0 26px rgba(34, 230, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex; flex-direction: column; gap: 6%;
+}
+.t360-screen {
+  flex: 0 0 46%; border-radius: 8px; padding: 6% 7%; overflow: hidden;
+  background: linear-gradient(180deg, #06232e, #07101f); border: 1px solid rgba(34, 230, 255, 0.5);
+  box-shadow: inset 0 0 14px rgba(34, 230, 255, 0.35); font-family: ui-monospace, Consolas, monospace;
+  font-size: clamp(7px, calc(var(--size) * 0.0165), 10px); line-height: 1.35; color: #bff7ff; display: flex; flex-direction: column; justify-content: space-between;
+}
+.t360-screen b { display: block; color: var(--c-gold); font-weight: 700; font-size: 0.82em; letter-spacing: 0.06em; }
+.t360-screen span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t360-keys { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6%; align-content: center; }
+.t360-keys i { aspect-ratio: 1.5; border-radius: 4px; background: linear-gradient(180deg, #3a4175, #1c2147); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset; }
+.t360-keys i:nth-last-child(-n + 3):nth-child(3n + 1) { background: linear-gradient(180deg, #ff5f6d, #a1182c); }
+.t360-keys i:last-child { background: linear-gradient(180deg, #3ddc84, #14753f); }
+.t360-slotline { position: absolute; left: 14%; right: 14%; bottom: 3.5%; height: 3px; border-radius: 3px; background: #05060f; box-shadow: 0 0 6px var(--c-violet); }
+
+/* ── Popup (fixed so the orbit never clips it) ──────────── */
+.t360-pop {
+  position: fixed; z-index: 60; width: min(320px, calc(100vw - 20px)); pointer-events: none;
+  padding: 12px 14px; border-radius: 14px; background: rgba(8, 11, 28, 0.96); backdrop-filter: blur(10px);
+  border: 1px solid var(--c-gold); box-shadow: 0 0 26px rgba(255, 200, 61, 0.35), 0 14px 40px rgba(0, 0, 0, 0.6);
+  animation: t360-pop-in 0.22s ease-out both;
+}
+.t360-pop h4 { margin: 0 0 8px; font-size: 13px; color: var(--c-gold); letter-spacing: 0.04em; }
+.t360-pop ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.t360-pop li { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; font-size: 12px; padding-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.t360-pop li:last-child { border-bottom: 0; padding-bottom: 0; }
+.t360-pop small { display: block; color: #8e98c9; font-size: 10.5px; margin-top: 1px; }
+.t360-pop .empty { color: #8e98c9; font-size: 12px; }
+.t360-tag { flex: none; padding: 1px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 700; border: 1px solid currentColor; }
+.t360-tag.ok { color: #6bffb0; } .t360-tag.bad { color: #ff6b7d; } .t360-tag.mid { color: var(--c-gold); } .t360-tag.info { color: var(--c-cyan); }
+
+/* ── Control panel ──────────────────────────────────────── */
+.t360-panel { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 8px; }
+.t360-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 12px; font: inherit; font-weight: 700; font-size: 13.5px;
+  color: #eaf9ff; text-decoration: none; cursor: pointer; background: rgba(34, 230, 255, 0.08);
+  border: 1px solid var(--c-cyan); box-shadow: 0 0 14px rgba(34, 230, 255, 0.35); transition: transform 0.2s, box-shadow 0.2s;
+}
+.t360-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 24px rgba(34, 230, 255, 0.7); }
+.t360-btn.violet { border-color: var(--c-violet); background: rgba(168, 85, 247, 0.1); box-shadow: 0 0 14px rgba(168, 85, 247, 0.4); }
+.t360-btn.violet:hover:not(:disabled) { box-shadow: 0 0 24px rgba(168, 85, 247, 0.8); }
+.t360-btn.danger { border-color: #ff4d6a; background: rgba(255, 77, 106, 0.1); color: #ffd3da; box-shadow: 0 0 14px rgba(255, 77, 106, 0.45); }
+.t360-btn.danger:hover:not(:disabled) { box-shadow: 0 0 26px rgba(255, 77, 106, 0.85); }
+.t360-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.t360-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* ── Toast + confirm ────────────────────────────────────── */
+.t360-toast {
+  position: fixed; left: 50%; bottom: 26px; z-index: 80; transform: translateX(-50%); max-width: calc(100vw - 24px);
+  padding: 11px 18px; border-radius: 12px; font-size: 13px; background: rgba(8, 11, 28, 0.97);
+  border: 1px solid var(--c-cyan); box-shadow: 0 0 22px rgba(34, 230, 255, 0.5); animation: t360-toast-in 0.25s ease-out both;
+}
+.t360-toast.error { border-color: #ff4d6a; box-shadow: 0 0 22px rgba(255, 77, 106, 0.5); }
+.t360-modal-bg { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: rgba(2, 3, 10, 0.72); padding: 16px; }
+.t360-modal { width: min(400px, 100%); padding: 22px; border-radius: 16px; background: #0b0f26; border: 1px solid #ff4d6a; box-shadow: 0 0 34px rgba(255, 77, 106, 0.5); }
+.t360-modal h3 { margin: 0 0 8px; color: #ff8a9b; }
+.t360-modal p { margin: 0 0 18px; font-size: 13px; color: #c4cbee; line-height: 1.5; }
+.t360-modal div { display: flex; justify-content: flex-end; gap: 10px; }
+
+.t360-loading { display: grid; place-items: center; min-height: 360px; color: #8e98c9; }
+
+/* ── Keyframes ──────────────────────────────────────────── */
+@keyframes t360-spin { to { transform: rotate(360deg); } }
+@keyframes t360-spin-rev { to { transform: rotate(-360deg); } }
+@keyframes t360-pulse { 0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.92); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); } }
+@keyframes t360-flow { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+@keyframes t360-pop-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.t360-toast { --x: -50%; }
+@keyframes t360-toast-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 560px) {
+  .t360 { padding: 16px 10px 34px; }
+  .t360-stage { margin: 46px auto 30px; }
+  .t360-box { padding: 7px 8px; }
+  .t360-box-hint { display: none; }
+  .t360-btn { flex: 1 1 100%; justify-content: center; }
+}
+
+/* ── Reduced motion: no spinning/flowing, static but fully usable ── */
+@media (prefers-reduced-motion: reduce) {
+  .t360 *, .t360 *::before, .t360 *::after { animation: none !important; transition: none !important; }
+  .t360-glow { opacity: 0.85; }
+}

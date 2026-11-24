@@ -488,6 +488,14 @@ export default function TerminalsPage() {
                         </button>
                         <button
                           className="btn btn-secondary btn-sm"
+                          onClick={() => navigate(`/terminals/${t.id}/360`)}
+                          title="Open the Terminal 360 view"
+                          style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed' }}
+                        >
+                          360°
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
                           onClick={() => openActivity(t)}
                           title="View command history, app states and ad deliveries"
                           style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
