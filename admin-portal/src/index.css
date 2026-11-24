@@ -744,16 +744,84 @@ tbody tr:hover { background: var(--bg-surface-2); }
 }
 
 /* ── Responsive ────────────────────────────────────────────────────────────── */
+.main-content { min-width: 0; }
+.menu-toggle, .sidebar-backdrop { display: none; }
+.sidebar { transition: transform var(--transition-normal); }
+.card, .modal, .page-container > * { min-width: 0; }
+img, video, canvas { max-width: 100%; }
+
+@media (max-width: 1200px) {
+  .topbar-search { width: 200px; }
+}
+
 @media (max-width: 1024px) {
   .grid-2 { grid-template-columns: 1fr; }
   .grid-3 { grid-template-columns: 1fr 1fr; }
+  .page-container { padding: 22px 20px; }
+}
+
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); box-shadow: none; }
+  .sidebar.open { transform: translateX(0); box-shadow: var(--shadow-lg); }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 95;
+  }
+  .menu-toggle { display: inline-flex; flex-shrink: 0; }
+  .main-content { margin-left: 0; }
+  .topbar { left: 0; padding: 0 16px; gap: 10px; }
+  .page-container { max-width: 100%; }
 }
 
 @media (max-width: 768px) {
-  .sidebar { transform: translateX(-100%); }
-  .main-content { margin-left: 0; }
   .grid-3 { grid-template-columns: 1fr; }
-  .page-container { padding: 16px; }
+  .page-container { padding: 16px 12px; }
+  .topbar-search { display: none; }
+  .topbar-title { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .page-title { font-size: 19px; }
+  .page-header > * { max-width: 100%; }
+  .page-header > div:last-child { flex-wrap: wrap; }
+  .card { padding: 16px; }
+  .stat-card { padding: 16px; }
+  .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .modal-overlay { align-items: flex-start; padding: 12px; overflow-y: auto; }
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none;
+    padding: 18px;
+  }
+  /* Filter bars with fixed-width controls */
+  .page-container input[style*="width"],
+  .page-container select[style*="width"],
+  .page-container .form-select[style*="width"],
+  .page-container .form-input[style*="width"] {
+    max-width: 100%;
+  }
+  /* Inline 2-column grids inside content collapse to one column */
+  .page-container div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+  .page-container div[style*="minmax(340px"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* Filter / button rows (flex rows without alignItems) wrap instead of overflowing */
+  .page-container div[style*="display: flex"]:not([style*="flex-direction: column"]):not([style*="align-items"]),
+  .modal div[style*="display: flex"]:not([style*="flex-direction: column"]):not([style*="align-items"]) {
+    flex-wrap: wrap;
+  }
+  tbody td, thead th { padding: 10px 12px; }
+  .table-wrapper table { min-width: 640px; }
+}
+
+@media (max-width: 480px) {
+  .btn { padding: 8px 12px; }
+  .page-header { align-items: flex-start; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .stat-value { font-size: 22px; }
 }
 
 /* ── Leaflet fix for dark mode ──────────────────────────────────────────────── */

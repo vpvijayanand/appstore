@@ -1,9 +1,10 @@
+import { useEffect, useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import logoMark from '../assets/logo-mark.png';
 import {
   LayoutDashboard, Package, Tag, Users, Monitor,
-  Map, Download, LogOut, Search, Bell, HardDrive, Share2, Megaphone, Boxes, Radio
+  Map, Download, LogOut, Search, Bell, HardDrive, Share2, Megaphone, Boxes, Radio, Menu
 } from 'lucide-react';
 
 const navItems = [
@@ -24,6 +25,9 @@ const navItems = [
 export default function Layout() {
   const { admin, logout } = useAuth();
   const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 
   const pageTitle = navItems.find(n =>
     n.path === '/' ? location.pathname === '/' : location.pathname.startsWith(n.path)
@@ -31,8 +35,9 @@ export default function Layout() {
 
   return (
     <div className="app-layout">
+      {menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <div className="sidebar-logo-icon">
             <img src={logoMark} alt="WL BizStore" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -83,6 +88,14 @@ export default function Layout() {
 
       {/* Top Bar */}
       <header className="topbar">
+        <button
+          className="btn btn-icon btn-secondary menu-toggle"
+          title="Menu"
+          aria-label="Toggle navigation"
+          onClick={() => setMenuOpen(o => !o)}
+        >
+          <Menu size={18} />
+        </button>
         <h1 className="topbar-title">{pageTitle}</h1>
         <div className="topbar-search">
           <Search size={14} color="var(--text-muted)" />
